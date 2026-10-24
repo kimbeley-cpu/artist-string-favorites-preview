@@ -10,7 +10,7 @@ runInNewContext(src,sandbox,{filename:"nai-png-metadata.js"});
 const api=sandbox.module.exports;
 assert.equal(typeof api.read,"function");
 function chunk(type,body){let b=Buffer.alloc(12+body.length);b.writeUInt32BE(body.length,0);b.write(type,4,4,"ascii");body.copy(b,8);return b}
-function png(extra=[]){let head=Buffer.alloc(13);head.writeUInt32BE(1,0);head.writeUInt32BE(height,4);head[8]=8;head[9]=6;
+function png(extra=[]){let head=Buffer.alloc(13);head.writeUInt32BE(1,0);head.writeUInt32BE(1,4);head[8]=8;head[9]=6;
   const raw=Buffer.from([0,20,40,60,255]);
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk("IHDR",head),...extra,chunk("IDAT",deflateSync(raw)),chunk("IEND",Buffer.alloc(0))])
 }
@@ -29,7 +29,7 @@ async function run(){
   const payload=gzipSync(Buffer.from(JSON.stringify(parameters)));
   const signature=Buffer.from("stealth_pngcomp");const size=Buffer.alloc(4);size.writeUInt32BE(payload.length*8);
   const message=Buffer.concat([signature,size,payload]);const height=5,width=Math.ceil(message.length*8/height);
-  const head=Buffer.alloc(13);head.writeUInt32BE(width,0);head.writeUInt32BE(1,4);head[8]=8;head[9]=6;
+  const head=Buffer.alloc(13);head.writeUInt32BE(width,0);head.writeUInt32BE(height,4);head[8]=8;head[9]=6;
   const rgba=Buffer.alloc(height*(1+width*4));
   for(let y=0;y<height;y++)rgba[y*(1+width*4)]=0;
   for(let j=0;j<message.length*8;j++){const x=Math.floor(j/height),y=j%height;rgba[y*(1+width*4)+1+x*4+3]=254|((message[Math.floor(j/8)]>>(7-(j%8)))&1)}
