@@ -21,3 +21,6 @@ jobs:
         run: node tests/verify-characters.mjs
       - name: Stage E image recycle safety
         run: node tests/verify-images.mjs
+
+      - name: Stage F image-to-image
+        run: node tests/verify-img2img.mjs
