@@ -247,7 +247,12 @@ dialog[open]{display:block}
         <div class="drop" id="pngdrop" tabindex="0" role="button" aria-label="拖入或选择 NovelAI 原始 PNG">拖入 NovelAI 原始 PNG，或点击选择图片（仅本地解析）</div>
         <input id="pngfile" type="file" accept=".png,image/png" hidden>
         <div id="pnginfo" class="warn" role="status"></div>
-        <div id="pngresults" hidden><div id="pngfields" class="str" style="margin-top:10px;max-height:250px;overflow:auto"></div>
+        <div id="pngresults" hidden>
+          <div class="warn" style="margin-top:10px;font-weight:700">套用正面提示词时如何处理原画师串？</div>
+          <label style="font-weight:400"><input type="radio" name="pngArtistChoice" id="pngkeep" value="keep" checked> 保留当前画师串（默认）</label>
+          <label style="font-weight:400"><input type="radio" name="pngArtistChoice" id="pngclear" value="clear"> 清空画师串</label>
+          <div class="warn">提示词模板保持原样；不会自动清空。</div>
+          <div id="pngfields" class="str" style="margin-top:10px;max-height:250px;overflow:auto"></div>
           <div id="pngchanges" class="warn" style="white-space:pre-wrap;margin-top:8px"></div>
           <div class="row"><button class="btn" type="button" id="pngview">只查看 / 关闭</button><button class="btn pri" type="button" id="pngapply">套用已识别参数</button></div>
         </div>
@@ -716,27 +721,27 @@ function pngReport(data){
   Object.keys(names).forEach(function(k){var v=fields[k],txt=v===null||v===undefined?"未找到":typeof v==="object"?JSON.stringify(v):String(v);rows.push(names[k]+"："+txt)});
   box.textContent=rows.join("\n");
   var changes=[];
-  if(fields.prompt!==null)changes.push("正面提示词 → 主提示词（并清空当前画师串和提示词模板，避免重复）");
+  if(fields.prompt!==null)changes.push("正面提示词 → 主提示词（画师串按下方选项处理，提示词模板保留）");
   if(fields.negative!==null)changes.push("负面词");
-  if(fields.model!==null)changes.push("模型");
+  if(fields.model!==null){if(Array.prototype.some.call($("gm").options,function(o){return o.value===fields.model&&o.value!=="custom"}))changes.push("模型");else changes.push("模型未列入可选项，仅展示，不会套用")};
   if(fields.size!==null&&Array.prototype.some.call($("gz").options,function(o){return o.value===fields.size||o.text===fields.size}))changes.push("尺寸");
   if(fields.steps!==null)changes.push("步数");
   if(fields.scale!==null)changes.push("引导强度");
   if(fields.seed!==null)changes.push("种子");
   $("pngchanges").textContent="将覆盖："+(changes.length?changes.join("、"):"没有可套用字段")+"。采样器、噪声计划和角色数据只显示，不改变生成逻辑。";
-  $("pngresults").hidden=false;$("pngapply").disabled=!changes.length
+  $("pngkeep").checked=true;$("pngresults").hidden=false;$("pngapply").disabled=!Object.keys(fields).some(function(k){return ["prompt","negative","model","size","steps","scale","seed"].indexOf(k)>=0&&fields[k]!==null})
 }
 function pngApply(){
   if(!pngLoaded||!pngLoaded.ok)return;
   var f=pngLoaded.fields,changed=false;
-  if(f.prompt!==null){$("gs").value="";$("gtp").value="";$("ge").value=f.prompt;changed=true}
+  if(f.prompt!==null){if($("pngclear").checked)$("gs").value="";$("ge").value=f.prompt;changed=true}
   if(f.negative!==null){$("gn").value=f.negative;changed=true}
-  if(f.model!==null){setModel(f.model);changed=true}
+  if(f.model!==null&&Array.prototype.some.call($("gm").options,function(o){return o.value===f.model&&o.value!=="custom"})){setModel(f.model);changed=true}
   if(f.size!==null){var sz=$("gz");if(Array.prototype.some.call(sz.options,function(o){return o.value===f.size||o.text===f.size})){sz.value=f.size;changed=true}}
   if(f.steps!==null&&f.steps>=1&&f.steps<=50){$("gp").value=f.steps;changed=true}
   if(f.scale!==null&&f.scale>0){$("gc").value=f.scale;changed=true}
   if(f.seed!==null&&f.seed>=0){$("gd2").value=f.seed;changed=true}
-  if(changed){saveGenCfg();updGpv();renderGv(true);toast("已套用识别到的参数")}
+  if(changed){saveGenCfg();updGpv();renderGv(true);toast("已套用识别到的参数（保留提示词模板）")}
   else toast("没有可套用的参数");
 }
 async function pngSelectFile(file){
