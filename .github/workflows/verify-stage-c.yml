@@ -17,3 +17,5 @@ jobs:
         run: node tests/verify-preview.mjs
       - name: Stage C PNG metadata fixtures
         run: node tests/verify-png.mjs
+      - name: Stage D character positions
+        run: node tests/verify-characters.mjs
