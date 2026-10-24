@@ -39,3 +39,23 @@
 已通过源码静态审查；提供了可由 Node.js 执行的合成 PNG 测试脚本 `node tests/verify-png.mjs`。当前未在真实浏览器上执行自动化点击测试，也没有获得用户的真实 NovelAI PNG 测试素材，因此实际图片兼容性仍需在验收时验证。
 
 **未获用户验收前不进入阶段 D。**
+
+
+## 用户审查整改（2026-10-24）
+
+1. **Alpha 位流顺序**：按 NovelAI 官方 `NovelAI/novelai-image-metadata` 的 `nai_meta.py`（`alpha.T.reshape`）改为先列后行：`for x -> for y -> alpha[y*width+x]&1`。删除未调用的 `readBit` 辅助函数。
+2. **正面提示词套用**：增加「保留当前画师串（默认）/ 清空画师串」显式选择。提示词模板始终保留，不再被代码清空。
+3. **未知模型**：不在已知下拉模型选项的模型只展示，不调用 `setModel`，不会强制填入自定义模型。
+4. **测试修复**：修复严格模式下 iTXt 测试样本的八进制转义错误；合成隐写 PNG 改为多行图片并按列嵌入；将折叠组数量断言从 5 改为 6。
+5. **持续集成**：新增 `.github/workflows/verify-stage-c.yml`，只执行 `node tests/verify-preview.mjs` 和 `node tests/verify-png.mjs`，不部署、不使用密钥。
+
+### GitHub Actions 实际执行结果
+
+- 运行链接：https://github.com/kimbeley-cpu/artist-string-favorites-preview/actions/runs/40056546040
+- 任务 `verify`：**success**
+- `Stage A and B preview regression`：**success**
+- `Stage C PNG metadata fixtures`：**success**
+
+**限制：** 上述 PNG 测试由脚本合成（模拟 NovelAI 位流），不是从 NovelAI 服务真正生成并保存的原始 PNG。真实 NovelAI 隐写 PNG 的兼容性仍待用真实样本进行测试；不得将合成样本测试记为真实文件验证通过。
+
+**范围不变：** 阶段 B 布局、阶段 A 隔离不改；未经用户批准不进入阶段 D。
