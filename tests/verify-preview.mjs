@@ -39,6 +39,6 @@ const panel=html.slice(html.indexOf('<dialog id="gd">'),html.indexOf('<dialog id
 for (const id of ['gs','gch','gcl','ge','gn','gv','gm','gz','gp','gc','gd2','gt','gauto','gg','gres','gdb','gsv']) {
   check((panel.match(new RegExp('id="' + id + '"','g'))||[]).length === 1, 'Existing generation control retained: '+id);
 }
-check((panel.match(/<details\\b/g)||[]).length === (panel.match(/<\\/details>/g)||[]).length, 'Collapsible elements are paired');
+check((panel.match(/<details class="gen-section"/g)||[]).length === (panel.match(new RegExp('</details>', 'g'))||[]).length, 'Collapsible elements are paired');
 
 // Static checks do not establish live browser usability or API compatibility.
