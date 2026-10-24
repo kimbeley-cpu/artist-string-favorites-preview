@@ -311,8 +311,7 @@ dialog[open]{display:block}
   <div class="vl" id="gv"></div>
   <label style="font-weight:400"><input type="checkbox" id="gkeep" checked> 把勾选使用的 Vibe 一起存进这张卡片</label>
       </div></details>
-      <!-- 未来高级功能插入位置：阶段 D 多角色控制 / 阶段 F 图生图。现在不做。 -->
-<details class="gen-section"><summary>多角色控制（阶段 D）</summary><div class="gen-section-body"><div class="warn">在上方角色栏开启手动站位，每个角色独立设置正负提示词与 5×5 位置。</div></div></details>
+      <!-- 未来图生图功能预留在 PNG 读取区之前；角色站位已在角色栏实现。 -->
       <details class="gen-section" open><summary>读取 NovelAI PNG 参数</summary><div class="gen-section-body">
         <div class="drop" id="pngdrop" tabindex="0" role="button" aria-label="拖入或选择 NovelAI 原始 PNG">拖入 NovelAI 原始 PNG，或点击选择图片（仅本地解析）</div>
         <input id="pngfile" type="file" accept=".png,image/png" hidden>
@@ -709,26 +708,79 @@ $("vfi").onchange=function(){
     fr.onload=function(){try{parseVibes(fr.result,f.name).forEach(function(v){draftVibes.push(v)});drawVibes()}catch(e){toast("读取失败："+e.message)}};
     fr.readAsText(f)});this.value=""};
 function mkey(m){return m.replace("nai-diffusion-","v").replace(/-preview$/,"").replace(/-(full|curated)/,"$1")}
-var tmpVibes=[],gvKey="",lastTmpUsed=[];
+var tmpVibes=[],gvKey="",lastTmpUsed=[],vibeSelection={};
+function vibeIdentity(v){
+  // Prefer saved Vibe IDs; imported .naiv4vibe files may not have one.
+  if(v.id)return "id:"+v.id;
+  var e=(v.encs&&v.encs[0])||{},encoded=e.enc||"",hash=2166136261;
+  for(var i=0;i<encoded.length;i++){hash^=encoded.charCodeAt(i);hash=Math.imul(hash,16777619)}
+  return "encoding:"+(hash>>>0).toString(16)+":"+encoded.length+":"+(e.m||"");
+}
+function vibeSelectionKey(v,src,it){
+  return (src==="e"?"card:"+(it&&it.id||""):"temporary")+":"+vibeIdentity(v)
+}
+function resetNewVibeSelection(v){vibeSelection[vibeSelectionKey(v,"t",null)]=false;saveGenCfg()}
+
 function renderGv(force){
   var it=targetEntry(),key=(it?it.id:"")+"|"+tmpVibes.length;
   if(!force&&key===gvKey)return;gvKey=key;
   var box=$("gv");box.innerHTML="";
+  function updateGroupCheckboxes(){
+    Array.prototype.forEach.call(box.children,function(group){
+      if(!group.dataset.groupHeader)return;
+      var selected=[],grp=group.dataset.groupHeader;
+      Array.prototype.forEach.call(box.children,function(r){
+        if(r.dataset.grp===grp){
+          var cb=r.querySelector("input[type=checkbox]");if(cb)selected.push(cb.checked)
+        }
+      });
+      var headerBox=group.querySelector("input[type=checkbox]");
+      if(!headerBox)return;
+      headerBox.checked=selected.length>0&&selected.every(Boolean);
+      headerBox.indeterminate=selected.some(Boolean)&&!selected.every(Boolean)
+    })
+  }
   function row(v,src,i){
     var d=document.createElement("div");d.className="vi";
-    var c=document.createElement("input");c.type="checkbox";c.checked=true;d.dataset.grp=v.grp?src+":"+v.grp:"";c.dataset.src=src;c.dataset.i=i;d.appendChild(c);
+    var selectionKey=vibeSelectionKey(v,src,it);
+    var c=document.createElement("input");c.type="checkbox";
+    c.checked=vibeSelection[selectionKey]===true;
+    d.dataset.grp=v.grp?src+":"+v.grp:"";c.dataset.src=src;c.dataset.i=i;
+    c.onchange=function(){vibeSelection[selectionKey]=c.checked;saveGenCfg();updateGroupCheckboxes()};
+    d.appendChild(c);
     if(v.thumb){var im=document.createElement("img");im.src=v.thumb;im.alt="";d.appendChild(im)}
     var n=document.createElement("span");n.textContent=v.name+(src==="t"?"（本次添加）":"");d.appendChild(n);
     var st=document.createElement("input");st.type="number";st.step="0.05";st.min="0";st.max="1";st.value=v.str;st.className="f";st.title="强度";d.appendChild(st);
-    if(src==="t"){var x=document.createElement("button");x.textContent="移除";x.onclick=function(){tmpVibes.splice(i,1);renderGv(true)};d.appendChild(x)}    box.appendChild(d)}
-  function list(arr,src){var last="";arr.forEach(function(v,i){
-    if(v.grp&&v.grp!==last){
-      var n=arr.filter(function(y){return y.grp===v.grp}).length,h=document.createElement("label");h.className="vi";h.style.background="transparent";
-      var mc=document.createElement("input");mc.type="checkbox";mc.checked=true;
-      mc.onchange=function(){Array.prototype.forEach.call(box.children,function(r){if(r.dataset.grp===src+":"+v.grp){var cb=r.querySelector("input[type=checkbox]");if(cb)cb.checked=mc.checked}})};
-      var t=document.createElement("span");t.textContent="📦 "+v.grp+"（"+n+" 个，整组勾选）";h.appendChild(mc);h.appendChild(t);box.appendChild(h)}
-    last=v.grp||"";row(v,src,i)})}
-  list((it&&it.vibes)||[],"e");list(tmpVibes,"t")}
+    if(src==="t"){var x=document.createElement("button");x.textContent="移除";x.onclick=function(){tmpVibes.splice(i,1);renderGv(true)};d.appendChild(x)}
+    box.appendChild(d)
+  }
+  function list(arr,src){
+    var last="";
+    arr.forEach(function(v,i){
+      if(v.grp&&v.grp!==last){
+        var grp=src+":"+v.grp,n=arr.filter(function(y){return y.grp===v.grp}).length;
+        var h=document.createElement("label");h.className="vi";h.style.background="transparent";h.dataset.groupHeader=grp;
+        var mc=document.createElement("input");mc.type="checkbox";
+        mc.onchange=function(){
+          Array.prototype.forEach.call(box.children,function(r){
+            if(r.dataset.grp!==grp)return;
+            var cb=r.querySelector("input[type=checkbox]");
+            if(!cb)return;
+            cb.checked=mc.checked;
+            var v2=cb.dataset.src==="t"?tmpVibes[+cb.dataset.i]:((it&&it.vibes)||[])[+cb.dataset.i];
+            if(v2)vibeSelection[vibeSelectionKey(v2,cb.dataset.src,it)]=mc.checked
+          });
+          saveGenCfg();updateGroupCheckboxes()
+        };
+        var t=document.createElement("span");t.textContent="📦 "+v.grp+"（"+n+" 个，整组勾选）";
+        h.appendChild(mc);h.appendChild(t);box.appendChild(h)
+      }
+      last=v.grp||"";row(v,src,i)
+    })
+  }
+  list((it&&it.vibes)||[],"e");list(tmpVibes,"t");
+  updateGroupCheckboxes()
+}
 function collectVibes(model){
   var it=targetEntry(),out={img:[],str:[],ie:[],tmp:[],names:[]},k=mkey(model);
   Array.prototype.forEach.call($("gv").children,function(row){
@@ -745,7 +797,7 @@ $("gvd").onclick=function(){$("gvf").click()};
 $("gvf").onchange=function(){
   Array.prototype.forEach.call(this.files,function(f){
     var fr=new FileReader();
-    fr.onload=function(){try{parseVibes(fr.result,f.name).forEach(function(v){tmpVibes.push(v);if(addToLib(v))saveLib()});renderGenVibeLib();renderGv(true)}catch(e){toast("读取失败："+e.message)}};
+    fr.onload=function(){try{parseVibes(fr.result,f.name).forEach(function(v){if(addToTmp(v)){if(addToLib(v))saveLib()}});renderGenVibeLib();renderGv(true)}catch(e){toast("读取失败："+e.message)}};
     fr.readAsText(f)});this.value=""};
 function prefillNN(){var it=targetEntry();$("gname").value=it?(it.name||""):"";$("gnote").value=it?(it.note||""):""}
 
@@ -829,9 +881,9 @@ async function saveGen(seed){
   lastBlob=null;save();render();fillGt($("gt").value);renderGv(true);
   toast("已保存到「"+it.name+"」"+(seed!=null?"，种子 "+seed:""))}
 var GF=["ge","gn","gm","gmc","gz","gp","gc","gfmt"];
-function saveGenCfg(){var o={auto:$("gauto").checked,dl:$("gdlauto").checked,gmg:$("gmg").checked,gms:gms,sep:$("gcsep").checked,manual:$("gmanual").checked,chars:gChars.map(function(c){return {lib:c.lib,text:c.text,uc:c.uc,pos:c.pos||null}})};GF.forEach(function(id){o[id]=$(id).value});kvSet("gen",o)}
+function saveGenCfg(){var o={vibeSelection:vibeSelection,auto:$("gauto").checked,dl:$("gdlauto").checked,gmg:$("gmg").checked,gms:gms,sep:$("gcsep").checked,manual:$("gmanual").checked,chars:gChars.map(function(c){return {lib:c.lib,text:c.text,uc:c.uc,pos:c.pos||null}})};GF.forEach(function(id){o[id]=$(id).value});kvSet("gen",o)}
 function loadGenCfg(){kvGet("gen").then(function(o){
-  if(!o)return;$("gcsep").checked=o.sep!==false;$("gmanual").checked=!!o.manual;setChars(o.chars||[]);GF.forEach(function(id){if(o[id]!=null)$(id).value=o[id]});$("gauto").checked=o.auto!==false;$("gdlauto").checked=!!o.dl;if(o.gm)setModel(o.gm);gms=o.gms||[];$("gmg").checked=!!o.gmg;updGmg()})}
+  if(!o)return;vibeSelection=o.vibeSelection&&typeof o.vibeSelection==="object"&&!Array.isArray(o.vibeSelection)?o.vibeSelection:{};$("gcsep").checked=o.sep!==false;$("gmanual").checked=!!o.manual;setChars(o.chars||[]);GF.forEach(function(id){if(o[id]!=null)$(id).value=o[id]});$("gauto").checked=o.auto!==false;$("gdlauto").checked=!!o.dl;if(o.gm)setModel(o.gm);gms=o.gms||[];$("gmg").checked=!!o.gmg;updGmg()})}
 GF.concat(["gauto","gdlauto","gmg"]).forEach(function(id){$(id).addEventListener("input",saveGenCfg);$(id).addEventListener("change",saveGenCfg)});
 $("gs").addEventListener("input",function(){renderGv()});
 function openGen(it){
@@ -1039,7 +1091,7 @@ function addToLib(v){if(lib.vibes.some(function(x){return sameEnc(x,v)}))return 
 function addToTmp(v){
   var it=targetEntry();
   if(tmpVibes.some(function(x){return sameEnc(x,v)})||((it&&it.vibes)||[]).some(function(x){return sameEnc(x,v)}))return false;
-  tmpVibes.push(clone(v));return true}
+  var added=clone(v);tmpVibes.push(added);resetNewVibeSelection(added);return true}
 function twoStep(b,fn){var t=b.textContent;b.onclick=function(){if(b.dataset.ok)fn();else{b.dataset.ok=1;b.textContent="再点确认";setTimeout(function(){b.dataset.ok="";b.textContent=t},3000)}}}
 $("lvf").onchange=function(){
   Array.prototype.forEach.call(this.files,function(f){
