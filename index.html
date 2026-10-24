@@ -243,6 +243,15 @@ dialog[open]{display:block}
   <div class="gen-titlebar"><h2>NovelAI 生图</h2><small>预览版 · 生图工作台</small></div>
   <div class="gen-layout">
     <section class="gen-settings" aria-label="NovelAI 生图参数">
+      <details class="gen-section" open><summary>读取 NovelAI PNG 参数</summary><div class="gen-section-body">
+        <div class="drop" id="pngdrop" tabindex="0" role="button" aria-label="拖入或选择 NovelAI 原始 PNG">拖入 NovelAI 原始 PNG，或点击选择图片（仅本地解析）</div>
+        <input id="pngfile" type="file" accept=".png,image/png" hidden>
+        <div id="pnginfo" class="warn" role="status"></div>
+        <div id="pngresults" hidden><div id="pngfields" class="str" style="margin-top:10px;max-height:250px;overflow:auto"></div>
+          <div id="pngchanges" class="warn" style="white-space:pre-wrap;margin-top:8px"></div>
+          <div class="row"><button class="btn" type="button" id="pngview">只查看 / 关闭</button><button class="btn pri" type="button" id="pngapply">套用已识别参数</button></div>
+        </div>
+      </div></details>
       <div class="gen-token">
   <label for="gk">API 令牌（pst- 开头）</label>
   <input class="f" id="gk" type="password" placeholder="只保存在你这台电脑的浏览器里" autocomplete="off">
@@ -386,6 +395,7 @@ dialog[open]{display:block}
 <!-- 测试版：云同步窗口已移除 -->
 <div id="toast" role="status"></div>
 
+<script src="nai-png-metadata.js"></script>
 <script>
 (function(){
 /* Preview-only: prevent accidental Supabase calls from page scripts. */
@@ -696,6 +706,56 @@ $("gvf").onchange=function(){
     fr.onload=function(){try{parseVibes(fr.result,f.name).forEach(function(v){tmpVibes.push(v);if(addToLib(v))saveLib()});renderGenVibeLib();renderGv(true)}catch(e){toast("读取失败："+e.message)}};
     fr.readAsText(f)});this.value=""};
 function prefillNN(){var it=targetEntry();$("gname").value=it?(it.name||""):"";$("gnote").value=it?(it.note||""):""}
+
+/* ---- Stage C: imported NovelAI PNG parameters; no file uploads ---- */
+var pngLoaded=null;
+function pngReport(data){
+  var names={prompt:"正面提示词",negative:"负面提示词",model:"模型",size:"尺寸",steps:"步数",scale:"引导强度",seed:"种子",sampler:"采样器（仅显示）",noise_schedule:"噪声计划（仅显示）",characters:"多角色信息（仅显示，阶段 D 才能套用）",referenceCount:"参考图数量（仅显示）"};
+  var fields=data.fields,box=$("pngfields");box.textContent="";
+  var rows=["来源："+data.origin,"原始图片尺寸："+data.imageSize];
+  Object.keys(names).forEach(function(k){var v=fields[k],txt=v===null||v===undefined?"未找到":typeof v==="object"?JSON.stringify(v):String(v);rows.push(names[k]+"："+txt)});
+  box.textContent=rows.join("\n");
+  var changes=[];
+  if(fields.prompt!==null)changes.push("正面提示词 → 主提示词（并清空当前画师串和提示词模板，避免重复）");
+  if(fields.negative!==null)changes.push("负面词");
+  if(fields.model!==null)changes.push("模型");
+  if(fields.size!==null&&Array.prototype.some.call($("gz").options,function(o){return o.value===fields.size||o.text===fields.size}))changes.push("尺寸");
+  if(fields.steps!==null)changes.push("步数");
+  if(fields.scale!==null)changes.push("引导强度");
+  if(fields.seed!==null)changes.push("种子");
+  $("pngchanges").textContent="将覆盖："+(changes.length?changes.join("、"):"没有可套用字段")+"。采样器、噪声计划和角色数据只显示，不改变生成逻辑。";
+  $("pngresults").hidden=false;$("pngapply").disabled=!changes.length
+}
+function pngApply(){
+  if(!pngLoaded||!pngLoaded.ok)return;
+  var f=pngLoaded.fields,changed=false;
+  if(f.prompt!==null){$("gs").value="";$("gtp").value="";$("ge").value=f.prompt;changed=true}
+  if(f.negative!==null){$("gn").value=f.negative;changed=true}
+  if(f.model!==null){setModel(f.model);changed=true}
+  if(f.size!==null){var sz=$("gz");if(Array.prototype.some.call(sz.options,function(o){return o.value===f.size||o.text===f.size})){sz.value=f.size;changed=true}}
+  if(f.steps!==null&&f.steps>=1&&f.steps<=50){$("gp").value=f.steps;changed=true}
+  if(f.scale!==null&&f.scale>0){$("gc").value=f.scale;changed=true}
+  if(f.seed!==null&&f.seed>=0){$("gd2").value=f.seed;changed=true}
+  if(changed){saveGenCfg();updGpv();renderGv(true);toast("已套用识别到的参数")}
+  else toast("没有可套用的参数");
+}
+async function pngSelectFile(file){
+  pngLoaded=null;$("pngresults").hidden=true;$("pnginfo").textContent="本地解析中…";
+  if(!file)return;
+  try{
+    var data=await NaiPngMetadata.read(file);
+    if(!data.ok){$("pnginfo").textContent=data.message;return}
+    pngLoaded=data;$("pnginfo").textContent="解析成功 · "+file.name;pngReport(data)
+  }catch(e){$("pnginfo").textContent="读取失败："+e.message}
+}
+$("pngdrop").onclick=function(){$("pngfile").click()};
+$("pngdrop").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();$("pngfile").click()}};
+$("pngfile").onchange=function(){var f=this.files&&this.files[0];this.value="";pngSelectFile(f)};
+$("pngdrop").ondragover=function(e){e.preventDefault();this.classList.add("over")};
+$("pngdrop").ondragleave=function(){this.classList.remove("over")};
+$("pngdrop").ondrop=function(e){e.preventDefault();this.classList.remove("over");var f=e.dataTransfer&&e.dataTransfer.files[0];pngSelectFile(f)};
+$("pngview").onclick=function(){$("pngresults").hidden=true;pngLoaded=null;$("pnginfo").textContent="只查看已结束，表单参数未改变"};
+$("pngapply").onclick=pngApply;
 
 /* ---- 生图 ---- */
 
