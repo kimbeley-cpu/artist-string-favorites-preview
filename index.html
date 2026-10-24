@@ -152,6 +152,11 @@ dialog[open]{display:block}
 #tokenDialog{width:min(500px,94vw)}
 #tokenStatus{margin-top:10px}
 #tokenSettings{white-space:nowrap}
+#imageDialog{width:min(980px,96vw)}
+#imageEntries .image-entry{border:1px solid var(--line);border-radius:9px;padding:8px;background:var(--soft);min-width:0}
+#imageEntries .image-entry img{width:100%;max-height:180px;object-fit:contain}
+#imageEntries .image-entry label{font-size:12px;overflow-wrap:anywhere}
+#imageEntries .image-entry input{margin-right:8px}
 #gd .position-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;max-width:280px;margin-top:8px}
 #gd .position-cell{border:1px solid var(--line);border-radius:6px;background:var(--soft);padding:5px 1px;cursor:pointer}
 #gd .position-cell[aria-pressed="true"]{background:var(--acc);color:var(--accink)}
@@ -209,6 +214,7 @@ dialog[open]{display:block}
     <button class="btn sec" id="vgn" data-for="vibes">新建 Vibe 组</button>
     <button class="btn sec" id="bat" data-for="gallery">批量添加</button>
     <button class="btn" id="gen">生图</button>
+    <button class="btn" type="button" id="imgManager">图片管理 / 回收站</button>
     <button class="btn" type="button" id="tokenSettings" aria-haspopup="dialog" aria-controls="tokenDialog">令牌设置</button>
     <button class="btn sec" id="cmb" data-for="gallery">组合器</button>
     <select class="btn sec" id="srt" data-for="gallery" aria-label="排序"><option value="new">最新添加</option><option value="rate">评分高到低</option><option value="name">名称 A-Z</option><option value="imgs">例图多到少</option></select>
@@ -400,6 +406,24 @@ dialog[open]{display:block}
   <div class="row"><button class="btn" id="vgx">取消</button><button class="btn pri" id="vgs">保存</button></div>
 </div></dialog>
 <dialog id="dt"><div class="in" id="dtb"></div></dialog>
+<dialog id="imageDialog" aria-labelledby="imageTitle"><div class="in">
+  <h2 id="imageTitle">图片管理</h2>
+  <div class="row" style="justify-content:flex-start">
+    <button class="btn" id="imageActive" type="button">图片列表</button>
+    <button class="btn" id="imageTrash" type="button">回收站</button>
+    <button class="btn" id="imageSelect" type="button">选择</button>
+    <button class="btn" id="imageAll" type="button">全选</button>
+    <button class="btn" id="imageNone" type="button">取消全选</button>
+  </div>
+  <div class="note" id="imageCount" role="status">已选 0 张</div>
+  <div id="imageEntries" class="gal"></div>
+  <div class="row">
+    <button class="btn danger" id="imageDelete" type="button">移入回收站</button>
+    <button class="btn" id="imageRestore" type="button">恢复所选</button>
+    <button class="btn danger" id="imagePurge" type="button">永久删除所选</button>
+    <button class="btn" id="imageClose" type="button">关闭</button>
+  </div>
+</div></dialog>
 <dialog id="big"><img id="bigi" alt=""><div id="bigc"></div></dialog>
 <div id="pickbar" hidden><span id="pkn">已选 0 个</span><button class="btn" id="pkc">清空</button><button class="btn" id="pkx">退出多选</button><button class="btn pri" id="pkg">去组合</button></div>
 <dialog id="cd"><div class="in">
@@ -416,6 +440,7 @@ dialog[open]{display:block}
 
 <script src="nai-png-metadata.js"></script>
 <script src="nai-character-positions.js"></script>
+<script src="image-recycle.js"></script>
 <script>
 (function(){
 /* Preview-only: prevent accidental Supabase calls from page scripts. */
@@ -592,6 +617,7 @@ function openDetail(id){
   var del=mk("删除","danger",function(){
     if(del.dataset.ok){items=items.filter(function(x){return x.id!==id});save();closeDlg("dt");render();toast("已删除")}
     else{del.dataset.ok=1;del.textContent="再点一次确认删除";setTimeout(function(){del.dataset.ok="";del.textContent="删除"},3000)}});
+  mk("管理图片 / 回收站","",function(){closeDlg("dt");openImageManager(id)});
   mk("编辑","",function(){closeDlg("dt");openEdit(id)});
   mk("用它生图","",function(){closeDlg("dt");$("gres").textContent="";$("gsave").hidden=true;openGen(it)});
   var rg=mk("出 3 张参考图","",function(){
@@ -601,6 +627,62 @@ function openDetail(id){
   mk("复制画师串","pri",function(){copy(it.str)});
   mk("关闭","",function(){closeDlg("dt")});
   box.appendChild(r);if(!$("dt").open)showDlg("dt")}
+
+/* Stage E: picture selection and soft-delete UI; never delete artist records here. */
+var imageMode="active",imageSelecting=false,imageSelected=new Set(),imageCardFilter="";
+function imageRows(){
+  var rows=[];
+  items.forEach(function(it){
+    if(imageCardFilter&&imageCardFilter!==it.id)return;
+    if(imageMode==="trash")((it.trashImgs)||[]).forEach(function(e,i){if(e&&e.id)rows.push({key:it.id+":trash:"+e.id,it:it,id:e.id,index:i,src:e.src,deletedAt:e.deletedAt})});
+    else (it.imgs||[]).forEach(function(src,i){rows.push({key:it.id+":active:"+i,it:it,index:i,src:src})})
+  });
+  return rows
+}
+function openImageManager(id){imageCardFilter=id||"";imageMode="active";imageSelecting=false;imageSelected.clear();drawImageManager();showDlg("imageDialog")}
+function drawImageManager(){
+  var rows=imageRows(),box=$("imageEntries");box.innerHTML="";
+  rows.forEach(function(entry){
+    var d=document.createElement("div");d.className="image-entry";
+    var img=document.createElement("img");img.src=entry.src;img.alt="图片";img.loading="lazy";d.appendChild(img);
+    var label=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.checked=imageSelected.has(entry.key);c.hidden=!imageSelecting;
+    c.onchange=function(){if(c.checked)imageSelected.add(entry.key);else imageSelected.delete(entry.key);drawImageManager()};
+    label.appendChild(c);label.appendChild(document.createTextNode(entry.it.name+" · "+(imageMode==="trash"?"回收站":"图片")+" "+(entry.index+1)));d.appendChild(label);
+    if(imageSelecting)d.onclick=function(e){if(e.target===c||e.target===label)return;c.checked=!c.checked;c.onchange()};
+    box.appendChild(d)
+  });
+  $("imageCount").textContent="共 "+rows.length+" 张 · 已选 "+rows.filter(function(x){return imageSelected.has(x.key)}).length+" 张";
+  $("imageSelect").textContent=imageSelecting?"退出选择":"选择";
+  $("imageDelete").hidden=imageMode!=="active";$("imageRestore").hidden=imageMode!=="trash";$("imagePurge").hidden=imageMode!=="trash";
+  $("imageAll").disabled=!imageSelecting;$("imageNone").disabled=!imageSelecting
+}
+function imageSwitch(next){imageMode=next;imageSelected.clear();drawImageManager()}
+$("imgManager").onclick=function(){openImageManager("")};
+$("imageActive").onclick=function(){imageSwitch("active")};
+$("imageTrash").onclick=function(){imageSwitch("trash")};
+$("imageSelect").onclick=function(){imageSelecting=!imageSelecting;imageSelected.clear();drawImageManager()};
+$("imageAll").onclick=function(){imageRows().forEach(function(x){imageSelected.add(x.key)});drawImageManager()};
+$("imageNone").onclick=function(){imageSelected.clear();drawImageManager()};
+$("imageClose").onclick=function(){closeDlg("imageDialog")};
+function imageAction(kind){
+  var chosen=imageRows().filter(function(x){return imageSelected.has(x.key)});
+  if(!chosen.length){toast("请先选择图片");return}
+  var verb=kind==="move"?"移入回收站":kind==="restore"?"恢复":"永久删除";
+  if(!confirm("确认"+verb+" "+chosen.length+" 张图片？"+(kind==="purge"?"永久删除后无法恢复。":"")))return;
+  var grouped={};
+  chosen.forEach(function(x){(grouped[x.it.id]||(grouped[x.it.id]={it:x.it,entries:[]})).entries.push(x)});
+  var moved=0;
+  Object.keys(grouped).forEach(function(k){
+    var group=grouped[k],entries=group.entries;
+    if(kind==="move")moved+=ASFImageRecycle.move(group.it,entries.map(function(x){return x.index}));
+    else if(kind==="restore")moved+=ASFImageRecycle.restore(group.it,entries.map(function(x){return x.id}));
+    else moved+=ASFImageRecycle.purge(group.it,entries.map(function(x){return x.id}))
+  });
+  imageSelected.clear();save();render();drawImageManager();toast("已"+verb+" "+moved+" 张")
+}
+$("imageDelete").onclick=function(){imageAction("move")};
+$("imageRestore").onclick=function(){imageAction("restore")};
+$("imagePurge").onclick=function(){imageAction("purge")};
 
 /* ---- 编辑 ---- */
 function openEdit(id){
@@ -644,7 +726,8 @@ $("sv").onclick=function(){
   var str=$("fs").value.trim(),name=$("fn").value.trim();
   if(!str){toast("请先填写画师串");$("fs").focus();return}
   var old=editing?byId(editing):null;
-  var rec={id:editing||uid(),name:name||"未命名",str:str,neg:$("fng").value.trim(),tags:parseTags($("ft").value),note:$("fm").value.trim(),rating:+$("fr").value,link:$("fl").value.trim(),imgs:draftImgs.slice(),vibes:draftVibes.slice(),metas:draftMetas.slice(),t:old?(old.t||Date.now()):Date.now()};
+  var rec={id:editing||uid(),name:name||"未命名",str:str,neg:$("fng").value.trim(),tags:parseTags($("ft").value),note:$("fm").value.trim(),rating:+$("fr").value,link:$("fl").value.trim(),imgs:draftImgs.slice(),vibes:draftVibes.slice(),metas:draftMetas.slice(),trashImgs:old&&Array.isArray(old.trashImgs)?old.trashImgs.slice():[],t:old?(old.t||Date.now()):Date.now()};
+  if(old){var remaining=draftImgs.slice(),removed=[];(old.imgs||[]).forEach(function(src,i){var p=remaining.indexOf(src);if(p>=0)remaining.splice(p,1);else removed.push(i)});if(removed.length)ASFImageRecycle.move(old,removed);rec.trashImgs=old.trashImgs.slice()}
   if(editing){items=items.map(function(x){return x.id===editing?rec:x})}else{items.unshift(rec)}
   save();closeDlg("ed");render();toast("已保存")};
 
@@ -670,7 +753,7 @@ $("impf").onchange=function(){
 $("add").onclick=function(){if(view==="gallery")openEdit(null);else openLib(view,null)};
 $("q").oninput=render;
 $("big").onclick=function(){closeDlg("big")};
-["dt","ed","gd","bd","cd","ld","vm","ve","vg"].forEach(function(id){$(id).addEventListener("click",function(e){if(e.target===this)closeDlg(this.id)})});
+["dt","ed","gd","bd","cd","ld","vm","ve","vg","imageDialog"].forEach(function(id){$(id).addEventListener("click",function(e){if(e.target===this)closeDlg(this.id)})});
 
 
 
