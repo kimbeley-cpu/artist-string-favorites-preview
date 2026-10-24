@@ -876,7 +876,7 @@ async function saveGen(seed){
     items.unshift(it);$("gname").value="";$("gnote").value=""}
   if($("gkeep").checked&&lastTmpUsed.length){
     it.vibes=it.vibes||[];
-    lastTmpUsed.forEach(function(v){if(!it.vibes.some(function(x){return x.encs[0].enc===v.encs[0].enc}))it.vibes.push(v)});
+    lastTmpUsed.forEach(function(v){if(!it.vibes.some(function(x){return x.encs[0].enc===v.encs[0].enc}))it.vibes.push(v);vibeSelection[vibeSelectionKey(v,"e",it)]=vibeSelection[vibeSelectionKey(v,"t",null)]===true});saveGenCfg();
     tmpVibes=tmpVibes.filter(function(v){return lastTmpUsed.indexOf(v)<0});lastTmpUsed=[]}
   lastBlob=null;save();render();fillGt($("gt").value);renderGv(true);
   toast("已保存到「"+it.name+"」"+(seed!=null?"，种子 "+seed:""))}
