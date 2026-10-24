@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {runInNewContext,Script} from "node:vm";
+const src=readFileSync("image-recycle.js","utf8"),html=readFileSync("index.html","utf8");
+new Script(src);const ctx={module:{exports:{}},Set,Date,Math,Number,Array};runInNewContext(src,ctx);const api=ctx.module.exports;
+function sample(){return {id:"artist-1",str:"artist:test",name:"Protected artist",imgs:["A","B","C"],metas:[{seed:1},{seed:2},{seed:3}],vibes:[{name:"v1"}],tags:["tag"],note:"keep",trashImgs:[]}}
+let a=sample(),ids=["trash-1","trash-2"];assert.equal(api.move(a,[0,2],()=>ids.shift(),123),2);
+assert.equal(JSON.stringify(a.imgs),JSON.stringify(["B"]));assert.equal(a.metas[0].seed,2);
+assert.equal(a.trashImgs.length,2);assert.equal(a.trashImgs[0].src,"C");assert.equal(a.trashImgs[0].meta.seed,3);
+assert.equal(a.trashImgs[1].src,"A");assert.equal(a.trashImgs[1].originalIndex,0);
+assert.equal(a.name,"Protected artist");assert.equal(a.str,"artist:test");assert.equal(a.vibes[0].name,"v1");
+assert.equal(api.restore(a,["trash-1","trash-2"]),2);
+assert.equal(JSON.stringify(a.imgs),JSON.stringify(["A","B","C"]));assert.deepEqual(a.metas.map(m=>m.seed),[1,2,3]);
+assert.equal(a.trashImgs.length,0);
+let b=sample();assert.equal(api.move(b,[1],()=>"dead"),1);assert.equal(api.purge(b,["dead"]),1);
+assert.equal(b.imgs.length,2);assert.equal(b.trashImgs.length,0);assert.equal(api.purge(b,["dead"]),0);
+assert.equal(b.name,"Protected artist");assert.equal(b.vibes.length,1);
+assert.equal(api.move(b,[99,-1,1,1],()=>"once"),1);
+assert.equal(api.restore(b,["missing"]),0);assert.equal(api.restore(b,["once"]),1);
+let old={id:"old",name:"old",imgs:["x","y"],metas:[]};assert.equal(api.move(old,[1],()=>"x"),1);assert.equal(old.metas.length,1);assert.equal(api.restore(old,["x"]),1);assert.equal(old.metas.length,2);
+for(const field of ["imageDialog","imageSelect","imageAll","imageNone","imageCount","imageDelete","imageTrash","imageRestore","imagePurge"])assert.ok(html.includes('id="'+field+'"'),field);
+assert.ok(html.includes('if(!confirm("确认"+verb+" "+chosen.length+" 张图片？"')),"Confirmation count");
+assert.ok(html.includes('trashImgs:old&&Array.isArray(old.trashImgs)')&&html.includes('ASFImageRecycle.move(old,removed)'),"Editor removals go to trash");
+assert.ok(html.includes('ASFImageRecycle.move(group.it,entries.map')&&html.includes('ASFImageRecycle.restore(group.it,entries.map')&&html.includes('ASFImageRecycle.purge(group.it,entries.map'),"Dedicated model only manipulates image entries");
+assert.doesNotMatch(html,/yrhefhwmwirohbccoybm|sb_publishable_s_PM8ZRi/);
+console.log("PASS Stage E: paired metadata, batch soft delete, restore, permanent deletion, legacy cards and protected artist/Vibe fields");
