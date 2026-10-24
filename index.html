@@ -345,6 +345,12 @@ dialog[open]{display:block}
     <div><label for="img2noise">噪声（0～1）</label><input class="f" id="img2noise" type="number" min="0" max="1" step="0.05" value="0.1"></div>
   </div>
   <div class="warn" id="img2size">尺寸提示：选择底图后显示如何处理尺寸。</div>
+  <div class="row" id="img2ratioActions" hidden>
+    <button class="btn pri" id="img2nearest" type="button">切换到与底图比例最接近的尺寸</button>
+    <label style="font-weight:400"><input type="checkbox" id="img2pad"> 留白适配（备选）</label>
+  </div>
+  <div class="warn">留白适配需要主动选择；白色留边可能被 NovelAI 当成画面内容画进图里。</div>
+  <div class="warn">底图人数和多角色数量不一致时，需要提高重绘强度（约 0.7 以上）才容易加人，但原图会改变更多。</div>
   <div class="warn">Vibe 与多角色站位：官方未明确禁止和 Img2Img 合用，组合尚待真实接口验证。Precise Reference 与 Vibe 官方明确不兼容（本站尚无 Precise Reference 功能）。</div>
   <div class="row"><button class="btn" id="img2clear" type="button">清除底图（恢复文生图）</button></div>
 </div></details>
@@ -954,17 +960,22 @@ $("pngapply").onclick=pngApply;
 /* Stage F: image-to-image base image stays in JS memory, never persisted. */
 var img2Base=null;
 function img2Size(){
-  if(!img2Base){$("img2size").textContent="尺寸提示：未选择底图";return}
+  var actions=$("img2ratioActions");
+  if(!img2Base){$("img2size").textContent="尺寸提示：未选择底图";actions.hidden=true;return}
   var target=$("gz").value.split("x").map(Number),r=NovelAIImageToImage.containRect(img2Base.width,img2Base.height,target[0],target[1]);
+  actions.hidden=!r.padded;
   $("img2size").textContent="原图 "+img2Base.width+"×"+img2Base.height+" → 生成 "+target.join("×")+
-    (r.changed?"；本机等比缩放到 "+r.width+"×"+r.height+(r.padded?"，四周留白":"")+"，完整保留原图，不裁切。":"；尺寸一致，不缩放、不裁切。");
+    (r.padded?($("img2pad").checked
+      ?"；已主动选择留白适配：本机等比缩放到 "+r.width+"×"+r.height+"，四周留白。注意：白色留边可能被 NovelAI 画进图里。"
+      :"；宽高比不一致。请一键切换到最接近的现有尺寸，或主动选择留白适配。")
+      :(r.changed?"；宽高比一致，本机等比缩放到 "+r.width+"×"+r.height+"，不留白、不裁切。":"；尺寸一致，不缩放、不裁切。"));
 }
 function img2Set(src,name){
   if(typeof src!=="string"||!/^data:image\/(?:png|jpeg|webp);base64,/i.test(src))throw new Error("不支持的底图格式");
   var image=new Image();
   image.onload=function(){
     if(!image.naturalWidth||!image.naturalHeight||image.naturalWidth*image.naturalHeight>18000000){$("img2status").textContent="底图像素过大或无效";return}
-    img2Base={src:src,width:image.naturalWidth,height:image.naturalHeight,name:name||"图片"};
+    img2Base={src:src,width:image.naturalWidth,height:image.naturalHeight,name:name||"图片"};$("img2pad").checked=false;
     $("img2preview").src=src;$("img2preview").style.display="block";
     $("img2status").textContent="已选择底图："+img2Base.name;img2Size()
   };
@@ -991,12 +1002,19 @@ $("gd").addEventListener("paste",function(e){var items0=e.clipboardData&&e.clipb
   for(var i=0;i<items0.length;i++)if(items0[i].kind==="file"&&/^image\//.test(items0[i].type)){e.preventDefault();img2FromFile(items0[i].getAsFile());break}});
 $("img2saved").onchange=function(){var value=this.value;if(!value)return;var sep=value.lastIndexOf(":"),it=byId(value.slice(0,sep)),i=+value.slice(sep+1);
   if(it&&it.imgs&&it.imgs[i])try{img2Set(it.imgs[i],it.name+" · 图片 "+(i+1))}catch(e){$("img2status").textContent=e.message}};
-$("img2clear").onclick=function(){img2Base=null;$("img2preview").removeAttribute("src");$("img2preview").style.display="none";$("img2saved").value="";
+$("img2clear").onclick=function(){img2Base=null;$("img2pad").checked=false;$("img2preview").removeAttribute("src");$("img2preview").style.display="none";$("img2saved").value="";
   $("img2status").textContent="未选择底图：继续普通文生图。";img2Size()};
+$("img2pad").addEventListener("change",img2Size);
+$("img2nearest").onclick=function(){
+  if(!img2Base)return;
+  $("gz").value=NovelAIImageToImage.closestSize(img2Base.width,img2Base.height,Array.prototype.map.call($("gz").options,function(o){return o.value||o.text}));
+  $("img2pad").checked=false;$("gz").dispatchEvent(new Event("change",{bubbles:true}))
+};
 $("gz").addEventListener("change",img2Size);
 function img2Prepare(){
   if(!img2Base)return null;
   var t=$("gz").value.split("x").map(Number),r=NovelAIImageToImage.containRect(img2Base.width,img2Base.height,t[0],t[1]);
+  if(r.padded&&!$("img2pad").checked)throw new Error("底图与生成尺寸宽高比不一致：请先切换到最接近的尺寸，或主动选择留白适配");
   var s=+$("img2strength").value,n=+$("img2noise").value;
   if(!Number.isFinite(s)||s<0||s>1||!Number.isFinite(n)||n<0||n>1)throw new Error("重绘强度和噪声必须在 0～1 之间");
   var img=new Image();

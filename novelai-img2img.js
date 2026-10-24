@@ -15,6 +15,19 @@ function containRect(sourceW,sourceH,targetW,targetH){
     changed:sourceW!==targetW||sourceH!==targetH,
     padded:width!==targetW||height!==targetH,scale:scale}
 }
+function closestSize(sourceW,sourceH,sizes){
+  if(!Number.isInteger(sourceW)||sourceW<1||!Number.isInteger(sourceH)||sourceH<1)throw new RangeError("图片尺寸无效");
+  if(!Array.isArray(sizes)||!sizes.length)throw new RangeError("没有可用尺寸");
+  var sourceRatio=sourceW/sourceH,best=null,bestDistance=Infinity;
+  sizes.forEach(function(size){
+    var match=String(size).match(/^(\d+)x(\d+)$/),w=match&&Number(match[1]),h=match&&Number(match[2]);
+    if(!w||!h)return;
+    var distance=Math.abs(Math.log((w/h)/sourceRatio));
+    if(distance<bestDistance){best=String(size);bestDistance=distance}
+  });
+  if(best===null)throw new RangeError("没有有效尺寸");
+  return best
+}
 function apply(body,base64,strength,noise){
   if(!body||!body.parameters)throw new TypeError("图生图请求参数缺失");
   if(typeof base64!=="string"||!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)||base64.length<4)throw new TypeError("底图必须是 PNG Base64");
@@ -25,7 +38,7 @@ function apply(body,base64,strength,noise){
   body.parameters.noise=n;
   return body
 }
-var api={containRect:containRect,apply:apply};
+var api={containRect:containRect,closestSize:closestSize,apply:apply};
 if(typeof module!=="undefined"&&module.exports)module.exports=api;
 root.NovelAIImageToImage=api
 })(typeof window!=="undefined"?window:typeof globalThis!=="undefined"?globalThis:this);
