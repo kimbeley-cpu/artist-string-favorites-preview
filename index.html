@@ -140,6 +140,56 @@ dialog[open]{display:block}
 .ib{white-space:nowrap}.ar{flex-wrap:wrap}.ar .n{min-width:90px}.ch{flex-wrap:wrap}.ch .cn{min-width:120px}
 .acts{display:flex;gap:6px;flex:1 1 100%;justify-content:flex-end}
 #vv.lg{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+
+/* ---- Stage B: NovelAI workspace layout (preview only) ---- */
+#gd{width:min(1360px,98vw);max-height:96dvh}
+#gd .gen{padding:18px;max-height:94dvh;height:min(94dvh,950px);overflow:hidden;display:flex;flex-direction:column;gap:12px}
+#gd .gen-titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#gd .gen-titlebar h2{margin:0}
+#gd .gen-titlebar small{font-size:12px;color:var(--mute)}
+#gd .gen-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:16px;min-height:0;flex:1}
+#gd .gen-settings{min-width:0;min-height:0;overflow-y:auto;padding:0 8px 10px 1px;scrollbar-gutter:stable}
+#gd .gen-token{padding:10px 12px 12px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}
+#gd .gen-token label{margin-top:0}
+#gd .gen-section{border:1px solid var(--line);border-radius:12px;margin:10px 0;background:var(--card);overflow:clip}
+#gd .gen-section>summary{padding:11px 14px;cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;user-select:none}
+#gd .gen-section>summary::-webkit-details-marker{display:none}
+#gd .gen-section>summary::after{content:"+";font-size:19px;font-weight:400;color:var(--mute)}
+#gd .gen-section[open]>summary::after{content:"−"}
+#gd .gen-section>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+#gd .gen-section[open]>summary{border-bottom:1px solid var(--line)}
+#gd .gen-section-body{padding:5px 14px 14px;min-width:0}
+#gd .gen-section-body>.warn:first-child{margin-top:10px}
+#gd .gen-actions{position:sticky;bottom:0;z-index:2;background:var(--card);padding:12px 3px 2px;margin-top:10px;border-top:1px solid var(--line)}
+#gd .gen-actions .btn.pri{min-width:150px}
+#gd .gen-preview{background:var(--soft);border:1px solid var(--line);border-radius:14px;min-width:0;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+#gd .gen-preview-heading{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+#gd .gen-preview-heading strong{font-size:16px}
+#gd .gen-preview-heading small{font-size:12px;color:var(--mute)}
+#gd #gres{margin:0;flex:1;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;overflow-wrap:anywhere}
+#gd #gres:empty::before{content:"生成的图片将在这里显示";color:var(--mute);display:block;border:1px dashed var(--line);border-radius:12px;padding:55px 10px;width:100%}
+#gd #gres img{max-width:100%;max-height:calc(94dvh - 170px);width:auto;height:auto;object-fit:contain}
+#gd #gres .gal{width:100%;align-self:stretch}
+#gd .gen-preview .row{margin-top:4px}
+@media(max-width:900px){
+  #gd{width:min(720px,97vw);max-height:94dvh}
+  #gd .gen{height:auto;max-height:92dvh;overflow-y:auto;padding:14px;display:block}
+  #gd .gen-titlebar{margin-bottom:12px}
+  #gd .gen-layout{display:flex;flex-direction:column;gap:14px;min-height:auto}
+  #gd .gen-settings,#gd .gen-preview{overflow:visible;min-height:0}
+  #gd .gen-actions{position:static}
+  #gd .gen-preview{min-height:280px}
+  #gd #gres img{max-height:58dvh}
+}
+@media(max-width:520px){
+  #gd .gen{padding:10px}
+  #gd .gen-section-body{padding:4px 10px 12px}
+  #gd .gen-section>summary{padding:10px 12px}
+  #gd .g2,#gd .g3{grid-template-columns:minmax(0,1fr)}
+  #gd .gen-actions .row{justify-content:stretch}
+  #gd .gen-actions .btn{flex:1}
+  #gd .gen-preview{padding:10px}
+}
 </style>
 </head>
 <body>
@@ -190,10 +240,15 @@ dialog[open]{display:block}
 </div></dialog>
 
 <dialog id="gd"><div class="in gen">
-  <h2>NovelAI 生图</h2>
+  <div class="gen-titlebar"><h2>NovelAI 生图</h2><small>预览版 · 生图工作台</small></div>
+  <div class="gen-layout">
+    <section class="gen-settings" aria-label="NovelAI 生图参数">
+      <div class="gen-token">
   <label for="gk">API 令牌（pst- 开头）</label>
   <input class="f" id="gk" type="password" placeholder="只保存在你这台电脑的浏览器里" autocomplete="off">
   <div class="warn">令牌不会上传到任何地方，只会发给 NovelAI 官方接口。不要在别人的电脑上保存。</div>
+      </div>
+      <details class="gen-section" open><summary>画师串、角色与主提示词</summary><div class="gen-section-body">
   <label for="gs">画师串</label><textarea class="f" id="gs" style="min-height:70px"></textarea>
   <label>角色栏（每个角色单独一栏，和 NovelAI 官网一样）</label>
   <div class="warn">从人物库加入（点一下加入，再点移除）：</div><div class="tgs" id="gch"></div>
@@ -204,6 +259,8 @@ dialog[open]{display:block}
   <label for="ge">主提示词（场景、构图、人数、动作等）</label><textarea class="f" id="ge" style="min-height:70px" placeholder="1girl, solo, ..."></textarea>
   <div class="warn" id="gpv"></div>
   <label style="font-weight:400"><input type="checkbox" id="gprev" checked> 把生成的图存为所用提示词模板 / 人物的预览图</label>
+      </div></details>
+      <details class="gen-section"><summary>Vibe Transfer（可选）</summary><div class="gen-section-body">
   <label>Vibe（可选）</label>
   <div class="warn">从 Vibe 库选择（点一下加入下方列表）：</div><div class="tgs" id="gvl"></div>
   <div class="drop" id="gvd" tabindex="0">点击添加 .naiv4vibe 文件，勾选的会用于本次生图</div>
@@ -211,10 +268,14 @@ dialog[open]{display:block}
   <div class="ch" style="margin-top:6px"><button class="ib" id="gvm" type="button">＋ 用自己的图片制作 Vibe</button></div>
   <div class="vl" id="gv"></div>
   <label style="font-weight:400"><input type="checkbox" id="gkeep" checked> 把勾选使用的 Vibe 一起存进这张卡片</label>
+      </div></details>
+      <details class="gen-section" open><summary>负面提示词</summary><div class="gen-section-body">
   <label for="gn">负面提示词</label>
   <div class="warn">从负面词库选择（点一下换成这条，再点别的会追加）：</div><div class="tgs" id="gnl"></div>
   <textarea class="f" id="gn" style="min-height:50px;margin-top:6px">lowres, bad anatomy, bad hands, text, error, worst quality, jpeg artifacts, signature, watermark</textarea>
   <div class="ch" style="margin-top:6px"><button class="ib" id="gns" type="button">把当前负面词存入库</button><button class="ib" id="gnc" type="button">清空</button></div>
+      </div></details>
+      <details class="gen-section" open><summary>模型与基础参数</summary><div class="gen-section-body">
   <div class="g2">
     <div><label for="gm">模型</label><select class="f" id="gm">
       <option value="nai-diffusion-5-full">V5 Full</option>
@@ -236,6 +297,8 @@ dialog[open]{display:block}
     <div><label for="gd2">种子（留空随机）</label><input class="f" id="gd2" placeholder="随机"></div>
   </div>
   <div class="warn">每次生成会消耗你的 Anlas。尺寸和步数越大，消耗越多。</div>
+      </div></details>
+      <details class="gen-section" open><summary>保存与下载设置</summary><div class="gen-section-body">
   <div class="g2">
     <div><label for="gt">存到</label><select class="f" id="gt"></select></div>
     <div><label for="gname">名称（可选）</label><input class="f" id="gname" placeholder="留空则自动取画师名"></div>
@@ -244,11 +307,17 @@ dialog[open]{display:block}
   <label style="font-weight:400;margin-top:10px"><input type="checkbox" id="gauto" checked> 生成后自动保存（相同画师串存进同一张卡片，没有就新建）</label>
   <div class="g2"><div><label for="gfmt">下载格式</label><select class="f" id="gfmt"><option value="png">PNG（原图，保留生成信息）</option><option value="jpg">JPG（体积小）</option></select></div>
   <div><label style="font-weight:400;margin-top:32px"><input type="checkbox" id="gdlauto"> 生成后自动下载</label></div></div>
-  <div class="row"><button class="btn" id="gx">关闭</button><button class="btn pri" id="gg">生成</button></div>
+      </div></details>
+      <div class="gen-actions"><div class="row"><button class="btn" id="gx">关闭</button><button class="btn pri" id="gg">生成</button></div></div>
+    </section>
+    <section class="gen-preview" aria-label="NovelAI 生成预览">
+      <div class="gen-preview-heading"><strong>生成预览</strong><small>结果、下载与收藏</small></div>
   <div id="gres"></div>
   <div class="row" id="gdlrow" hidden><button class="btn" id="gdb">下载这张图</button></div>
   <div id="gsave" hidden>
     <div class="row"><button class="btn pri" id="gsv">存为例图</button></div>
+  </div>
+    </section>
   </div>
 </div></dialog>
 <dialog id="bd"><div class="in">

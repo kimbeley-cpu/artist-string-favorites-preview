@@ -2,7 +2,9 @@
 
 这是与正式网站隔离的预览仓库。**云同步已禁用**，数据只在这个网站的浏览器来源内保存。本仓库不是正式版，禁止直接替换正式站点。
 
-阶段 A 修改说明与验收清单见 [STAGE_A_REPORT.md](./STAGE_A_REPORT.md)。
+阶段 A 隔离说明见 [STAGE_A_REPORT.md](./STAGE_A_REPORT.md)。
+
+**阶段 B 生图界面布局已在测试分支实施，待用户验收。** 文件与检查清单见 [STAGE_B_REPORT.md](./STAGE_B_REPORT.md)。
 
 ## 启用临时预览地址（暂不绑定自定义域名）
 
