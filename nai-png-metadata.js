@@ -122,50 +122,13 @@ async function alphaMeta(png){
   png.idat.forEach(function(a){joint.set(a,p);p+=a.length});
   var inflated=await zlib(joint,"deflate"),pitch=h.width*4,expected=(pitch+1)*h.height;
   if(inflated.length!==expected)return null;
-  // Reconstruct filtered RGBA rows without Canvas premultiplication (preserves alpha LSB).
-  var bitCount=0,byte=0,magic="",lengthBits=0,wanted=-1,payload=[],previous=new Uint8Array(pitch),offset=0;
-  function readBit(bit){
-    if(wanted===-2)return;
-    byte=(byte<<1)|bit;bitCount++;
-    if(bitCount!==8)return;
-    bitCount=0;var b=byte;byte=0;
-    if(magic.length<15){magic+=String.fromCharCode(b);if(magic.length===15){
-      if(magic!=="stealth_pngcomp"&&magic!=="stealth_pnginfo")wanted=-2;
-    }return}
-    if(wanted===-1){
-      lengthBits=(lengthBits*256+b)>>>0;
-      if(payload.length===0){payload.push(b);if(payload.length===4){
-        wanted=lengthBits/8;if(lengthBits%8||wanted<1||wanted>MAX_STEALTH)wanted=-2;
-        payload=[];
-      }}
-      return
-    }
-    if(wanted>0){payload.push(b);if(payload.length===wanted)wanted=-2}
-  }
-  // Length header needs exactly four bytes, not a rolling length counter.
-  var headerByteCount=0;bitCount=0;byte=0;lengthBits=0;wanted=-1;payload=[];
-  function collect(bit){
-    if(wanted===-2)return;
-    byte=(byte<<1)|bit;if(++bitCount<8)return;
-    var b=byte;byte=0;bitCount=0;
-    if(magic.length<15){
-      magic+=String.fromCharCode(b);
-      if(magic.length===15&&magic!=="stealth_pngcomp"&&magic!=="stealth_pnginfo")wanted=-2;
-    }else if(headerByteCount<4){
-      lengthBits=(lengthBits*256+b)>>>0;headerByteCount++;
-      if(headerByteCount===4){
-        wanted=lengthBits/8;
-        if(lengthBits%8||wanted<1||wanted>MAX_STEALTH)wanted=-2
-      }
-    }else if(wanted>=0){
-      payload.push(b);if(payload.length===wanted)wanted=-2
-    }
-  }
-  for(var y=0;y<h.height&&wanted!==-2;y++){
+  // PNG rows are encoded row-major; reconstruct filters first, preserving alpha LSBs.
+  var alpha=new Uint8Array(h.width*h.height),previous=new Uint8Array(pitch),offset=0;
+  for(var y=0;y<h.height;y++){
     var filter=inflated[offset++],row=new Uint8Array(pitch);
     if(filter>4)return null;
-    for(var x=0;x<pitch;x++){
-      var a=x>=4?row[x-4]:0,b=previous[x],c=x>=4?previous[x-4]:0,v=0;
+    for(var j=0;j<pitch;j++){
+      var a=j>=4?row[j-4]:0,b=previous[j],c=j>=4?previous[j-4]:0,v=0;
       if(filter===1)v=a;
       else if(filter===2)v=b;
       else if(filter===3)v=(a+b)>>1;
@@ -173,12 +136,36 @@ async function alphaMeta(png){
         var q=a+b-c,da=Math.abs(q-a),db=Math.abs(q-b),dc=Math.abs(q-c);
         v=da<=db&&da<=dc?a:db<=dc?b:c
       }
-      row[x]=(inflated[offset++]+v)&255
+      row[j]=(inflated[offset++]+v)&255
     }
-    for(var j=3;j<pitch&&wanted!==-2;j+=4)collect(row[j]&1);
+    for(var x=0;x<h.width;x++)alpha[y*h.width+x]=row[x*4+3];
     previous=row
   }
-  if(wanted!==-2||payload.length<1||lengthBits/8!==payload.length||!magic.startsWith("stealth_png"))return null;
+  // NovelAI/novelai-image-metadata nai_meta.py: alpha.T.reshape(-1).
+  // Its NumPy alpha shape is [height,width]; transpose means x-outer / y-inner.
+  var magic="",bitCount=0,assembledByte=0,headerBytes=0,lengthBits=0,wanted=-1,payload=[];
+  function collect(bit){
+    if(wanted===-2)return;
+    assembledByte=(assembledByte<<1)|bit;
+    if(++bitCount!==8)return;
+    var value=assembledByte;assembledByte=0;bitCount=0;
+    if(magic.length<15){
+      magic+=String.fromCharCode(value);
+      if(magic.length===15&&magic!=="stealth_pngcomp"&&magic!=="stealth_pnginfo")wanted=-2
+    }else if(headerBytes<4){
+      lengthBits=(lengthBits*256+value)>>>0;headerBytes++;
+      if(headerBytes===4){
+        wanted=lengthBits/8;
+        if(lengthBits%8||wanted<1||wanted>MAX_STEALTH)wanted=-2
+      }
+    }else if(wanted>0){
+      payload.push(value);
+      if(payload.length===wanted)wanted=-2
+    }
+  }
+  for(var xx=0;xx<h.width&&wanted!==-2;xx++)
+    for(var yy=0;yy<h.height&&wanted!==-2;yy++)collect(alpha[yy*h.width+xx]&1);
+  if(wanted!==-2||payload.length<1||lengthBits/8!==payload.length||magic.indexOf("stealth_png")!==0)return null;
   var bytes=new Uint8Array(payload);
   if(magic==="stealth_pngcomp")bytes=await zlib(bytes,"gzip");
   if(bytes.length>MAX_TEXT)error("隐藏的元数据体积过大");
