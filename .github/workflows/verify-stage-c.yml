@@ -19,3 +19,5 @@ jobs:
         run: node tests/verify-png.mjs
       - name: Stage D character positions
         run: node tests/verify-characters.mjs
+      - name: Stage E image recycle safety
+        run: node tests/verify-images.mjs
