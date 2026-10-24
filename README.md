@@ -13,3 +13,8 @@
 预期临时地址：`https://kimbeley-cpu.github.io/artist-string-favorites-preview/`。必须以实际可访问为准。Cloudflare DNS 由仓库所有者在之后自行配置。
 
 校验方式：`node tests/verify-preview.mjs`。至少完成浏览器联网隔离检查后才可验收阶段 A。
+
+
+## 阶段 C · PNG 元数据读取
+
+[阶段 C 修改与验收说明](./STAGE_C_REPORT.md)。新增本地 PNG 读取功能；等待用户验收后再进入阶段 D。
