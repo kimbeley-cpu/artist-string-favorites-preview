@@ -127,7 +127,7 @@ dialog[open]{display:block}
   h1{font-size:18px;flex:1 1 60%;order:0;margin:0}h1 small{display:none}
   #more{display:inline-block;order:1}
   #q{order:2;flex:1 1 45%;min-width:45%;padding:7px 12px}
-  #add,#vmk{order:3}#gen{order:4}
+  #add,#vmk{order:3}#gen,#tokenSettings{order:4}
   .bar .sec{order:5}
   header:not(.open) .bar .sec{display:none}
   .btn{padding:6px 12px;font-size:14px}
@@ -149,8 +149,9 @@ dialog[open]{display:block}
 #gd .gen-titlebar small{font-size:12px;color:var(--mute)}
 #gd .gen-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:16px;min-height:0;flex:1}
 #gd .gen-settings{min-width:0;min-height:0;overflow-y:auto;padding:0 8px 10px 1px;scrollbar-gutter:stable}
-#gd .gen-token{padding:10px 12px 12px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}
-#gd .gen-token label{margin-top:0}
+#tokenDialog{width:min(500px,94vw)}
+#tokenStatus{margin-top:10px}
+#tokenSettings{white-space:nowrap}
 #gd .gen-section{border:1px solid var(--line);border-radius:12px;margin:10px 0;background:var(--card);overflow:clip}
 #gd .gen-section>summary{padding:11px 14px;cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;user-select:none}
 #gd .gen-section>summary::-webkit-details-marker{display:none}
@@ -205,6 +206,7 @@ dialog[open]{display:block}
     <button class="btn sec" id="vgn" data-for="vibes">新建 Vibe 组</button>
     <button class="btn sec" id="bat" data-for="gallery">批量添加</button>
     <button class="btn" id="gen">生图</button>
+    <button class="btn" type="button" id="tokenSettings" aria-haspopup="dialog" aria-controls="tokenDialog">令牌设置</button>
     <button class="btn sec" id="cmb" data-for="gallery">组合器</button>
     <select class="btn sec" id="srt" data-for="gallery" aria-label="排序"><option value="new">最新添加</option><option value="rate">评分高到低</option><option value="name">名称 A-Z</option><option value="imgs">例图多到少</option></select>
     <a class="btn sec" href="https://spell.novelai.dev/" target="_blank" rel="noopener noreferrer" style="text-decoration:none;color:inherit">解析图片</a>
@@ -239,57 +241,41 @@ dialog[open]{display:block}
   <div class="row"><button class="btn" id="cx">取消</button><button class="btn pri" id="sv">保存</button></div>
 </div></dialog>
 
+<dialog id="tokenDialog" aria-labelledby="tokenTitle"><div class="in">
+  <h2 id="tokenTitle">NovelAI 令牌设置</h2>
+  <label for="gk">NovelAI API 令牌（pst- 开头）</label>
+  <input class="f" id="gk" type="password" placeholder="只保存在当前浏览器" autocomplete="off" spellcheck="false">
+  <div class="warn">令牌只保存在本机浏览器，只有使用 NovelAI 生图或 Vibe 编码时才发往 NovelAI 官方接口；不进入 Supabase、导出或日志。</div>
+  <div class="note" id="tokenStatus" role="status">本机令牌状态读取中…</div>
+  <div class="row"><button class="btn danger" type="button" id="tokenClear">清除本机令牌</button><button class="btn" type="button" id="tokenClose">关闭</button><button class="btn pri" type="button" id="tokenSave">保存到本机</button></div>
+</div></dialog>
 <dialog id="gd"><div class="in gen">
   <div class="gen-titlebar"><h2>NovelAI 生图</h2><small>预览版 · 生图工作台</small></div>
   <div class="gen-layout">
     <section class="gen-settings" aria-label="NovelAI 生图参数">
-      <details class="gen-section" open><summary>读取 NovelAI PNG 参数</summary><div class="gen-section-body">
-        <div class="drop" id="pngdrop" tabindex="0" role="button" aria-label="拖入或选择 NovelAI 原始 PNG">拖入 NovelAI 原始 PNG，或点击选择图片（仅本地解析）</div>
-        <input id="pngfile" type="file" accept=".png,image/png" hidden>
-        <div id="pnginfo" class="warn" role="status"></div>
-        <div id="pngresults" hidden>
-          <div class="warn" style="margin-top:10px;font-weight:700">套用正面提示词时如何处理原画师串？</div>
-          <label style="font-weight:400"><input type="radio" name="pngArtistChoice" id="pngkeep" value="keep" checked> 保留当前画师串（默认）</label>
-          <label style="font-weight:400"><input type="radio" name="pngArtistChoice" id="pngclear" value="clear"> 清空画师串</label>
-          <div class="warn">提示词模板保持原样；不会自动清空。</div>
-          <div id="pngfields" class="str" style="margin-top:10px;max-height:250px;overflow:auto"></div>
-          <div id="pngchanges" class="warn" style="white-space:pre-wrap;margin-top:8px"></div>
-          <div class="row"><button class="btn" type="button" id="pngview">只查看 / 关闭</button><button class="btn pri" type="button" id="pngapply">套用已识别参数</button></div>
-        </div>
+      <details class="gen-section" open><summary>画师串</summary><div class="gen-section-body">  <label for="gs">画师串</label><textarea class="f" id="gs" style="min-height:70px"></textarea>
       </div></details>
-      <div class="gen-token">
-  <label for="gk">API 令牌（pst- 开头）</label>
-  <input class="f" id="gk" type="password" placeholder="只保存在你这台电脑的浏览器里" autocomplete="off">
-  <div class="warn">令牌不会上传到任何地方，只会发给 NovelAI 官方接口。不要在别人的电脑上保存。</div>
-      </div>
-      <details class="gen-section" open><summary>画师串、角色与主提示词</summary><div class="gen-section-body">
-  <label for="gs">画师串</label><textarea class="f" id="gs" style="min-height:70px"></textarea>
-  <label>角色栏（每个角色单独一栏，和 NovelAI 官网一样）</label>
+      <details class="gen-section" open><summary>角色栏</summary><div class="gen-section-body">  <label>角色栏（每个角色单独一栏，和 NovelAI 官网一样）</label>
   <div class="warn">从人物库加入（点一下加入，再点移除）：</div><div class="tgs" id="gch"></div>
   <div class="vl" id="gcl"></div>
   <div class="ch" style="margin-top:6px"><button class="ib" id="gca" type="button">＋ 添加空白角色</button></div>
   <label style="font-weight:400"><input type="checkbox" id="gcsep" checked> 角色单独发送，不和主提示词混在一起（推荐；取消后会像以前一样拼进主提示词）</label>
-  <label for="gtp">提示词模板（在「提示词」页建库）</label><select class="f" id="gtp"></select>
+      </div></details>
+      <details class="gen-section" open><summary>提示词</summary><div class="gen-section-body">  <label for="gtp">提示词模板（在「提示词」页建库）</label><select class="f" id="gtp"></select>
   <label for="ge">主提示词（场景、构图、人数、动作等）</label><textarea class="f" id="ge" style="min-height:70px" placeholder="1girl, solo, ..."></textarea>
   <div class="warn" id="gpv"></div>
   <label style="font-weight:400"><input type="checkbox" id="gprev" checked> 把生成的图存为所用提示词模板 / 人物的预览图</label>
+            </div></details>
+      <details class="gen-section"><summary>服装外观（预留）</summary><div class="gen-section-body">
+  <div class="warn">此处仅预留服装外观库的位置，暂未开发，不修改任何生成参数。</div>
       </div></details>
-      <details class="gen-section"><summary>Vibe Transfer（可选）</summary><div class="gen-section-body">
-  <label>Vibe（可选）</label>
-  <div class="warn">从 Vibe 库选择（点一下加入下方列表）：</div><div class="tgs" id="gvl"></div>
-  <div class="drop" id="gvd" tabindex="0">点击添加 .naiv4vibe 文件，勾选的会用于本次生图</div>
-  <input type="file" id="gvf" accept=".naiv4vibe,.naiv4vibebundle,.json" multiple hidden>
-  <div class="ch" style="margin-top:6px"><button class="ib" id="gvm" type="button">＋ 用自己的图片制作 Vibe</button></div>
-  <div class="vl" id="gv"></div>
-  <label style="font-weight:400"><input type="checkbox" id="gkeep" checked> 把勾选使用的 Vibe 一起存进这张卡片</label>
-      </div></details>
-      <details class="gen-section" open><summary>负面提示词</summary><div class="gen-section-body">
+<details class="gen-section" open><summary>负面提示词</summary><div class="gen-section-body">
   <label for="gn">负面提示词</label>
   <div class="warn">从负面词库选择（点一下换成这条，再点别的会追加）：</div><div class="tgs" id="gnl"></div>
   <textarea class="f" id="gn" style="min-height:50px;margin-top:6px">lowres, bad anatomy, bad hands, text, error, worst quality, jpeg artifacts, signature, watermark</textarea>
   <div class="ch" style="margin-top:6px"><button class="ib" id="gns" type="button">把当前负面词存入库</button><button class="ib" id="gnc" type="button">清空</button></div>
       </div></details>
-      <details class="gen-section" open><summary>模型与基础参数</summary><div class="gen-section-body">
+<details class="gen-section" open><summary>模型与基础参数</summary><div class="gen-section-body">
   <div class="g2">
     <div><label for="gm">模型</label><select class="f" id="gm">
       <option value="nai-diffusion-5-full">V5 Full</option>
@@ -312,7 +298,32 @@ dialog[open]{display:block}
   </div>
   <div class="warn">每次生成会消耗你的 Anlas。尺寸和步数越大，消耗越多。</div>
       </div></details>
-      <details class="gen-section" open><summary>保存与下载设置</summary><div class="gen-section-body">
+      <!-- 已有 Vibe 高级设置；阶段 D 多角色控制和阶段 F 图生图放在下方 PNG 参数读取之前。 -->
+<details class="gen-section"><summary>Vibe Transfer（可选）</summary><div class="gen-section-body">
+  <label>Vibe（可选）</label>
+  <div class="warn">从 Vibe 库选择（点一下加入下方列表）：</div><div class="tgs" id="gvl"></div>
+  <div class="drop" id="gvd" tabindex="0">点击添加 .naiv4vibe 文件，勾选的会用于本次生图</div>
+  <input type="file" id="gvf" accept=".naiv4vibe,.naiv4vibebundle,.json" multiple hidden>
+  <div class="ch" style="margin-top:6px"><button class="ib" id="gvm" type="button">＋ 用自己的图片制作 Vibe</button></div>
+  <div class="vl" id="gv"></div>
+  <label style="font-weight:400"><input type="checkbox" id="gkeep" checked> 把勾选使用的 Vibe 一起存进这张卡片</label>
+      </div></details>
+      <!-- 未来高级功能插入位置：阶段 D 多角色控制 / 阶段 F 图生图。现在不做。 -->
+<details class="gen-section" open><summary>读取 NovelAI PNG 参数</summary><div class="gen-section-body">
+        <div class="drop" id="pngdrop" tabindex="0" role="button" aria-label="拖入或选择 NovelAI 原始 PNG">拖入 NovelAI 原始 PNG，或点击选择图片（仅本地解析）</div>
+        <input id="pngfile" type="file" accept=".png,image/png" hidden>
+        <div id="pnginfo" class="warn" role="status"></div>
+        <div id="pngresults" hidden>
+          <div class="warn" style="margin-top:10px;font-weight:700">套用正面提示词时如何处理原画师串？</div>
+          <label style="font-weight:400"><input type="radio" name="pngArtistChoice" id="pngkeep" value="keep" checked> 保留当前画师串（默认）</label>
+          <label style="font-weight:400"><input type="radio" name="pngArtistChoice" id="pngclear" value="clear"> 清空画师串</label>
+          <div class="warn">提示词模板保持原样；不会自动清空。</div>
+          <div id="pngfields" class="str" style="margin-top:10px;max-height:250px;overflow:auto"></div>
+          <div id="pngchanges" class="warn" style="white-space:pre-wrap;margin-top:8px"></div>
+          <div class="row"><button class="btn" type="button" id="pngview">只查看 / 关闭</button><button class="btn pri" type="button" id="pngapply">套用已识别参数</button></div>
+        </div>
+      </div></details>
+<details class="gen-section" open><summary>保存与下载设置</summary><div class="gen-section-body">
   <div class="g2">
     <div><label for="gt">存到</label><select class="f" id="gt"></select></div>
     <div><label for="gname">名称（可选）</label><input class="f" id="gname" placeholder="留空则自动取画师名"></div>
@@ -357,7 +368,7 @@ dialog[open]{display:block}
 </div></dialog>
 <dialog id="vm"><div class="in">
   <h2>制作 Vibe</h2>
-  <div class="warn">用你自己的图片生成 Vibe 编码，存进 Vibe 库。会调用 NovelAI 的编码接口，每张图、每个模型大约消耗 2 Anlas。令牌用的是「生图」里保存的那个。</div>
+  <div class="warn">用你自己的图片生成 Vibe 编码，存进 Vibe 库。会调用 NovelAI 的编码接口，每张图、每个模型大约消耗 2 Anlas。令牌使用顶栏「令牌设置」里保存的那个。</div>
   <label>参考图（可多选；选多张会自动做成一个 Vibe 组）</label>
   <div class="drop" id="vmd" tabindex="0">点击选择图片，或把图片拖进来 / 直接粘贴（Ctrl+V）</div>
   <input type="file" id="vmf" accept="image/*" multiple hidden>
@@ -432,6 +443,27 @@ window.addEventListener("unhandledrejection",function(e){
 
 var items=[],activeTag=null,editing=null,draftImgs=[],lib={prompts:[],negs:[],chars:[],marked:[],vibes:[]},view="gallery",rc=[],dragI=null,othOpen=false,gSel=[],draftVibes=[],draftMetas=[],sel=[],selMode=false,weights={},lastMeta=null;
 var $=function(id){return document.getElementById(id)};
+
+/* Stage C closeout: retain the original browser-local "token" storage key. */
+function refreshTokenStatus(){
+  $("tokenStatus").textContent=$("gk").value.trim()?"本机浏览器已设置令牌":"本机浏览器尚未设置令牌";
+}
+function reloadSavedToken(){
+  return kvGet("token").then(function(t){$("gk").value=typeof t==="string"?t:"";refreshTokenStatus()});
+}
+$("tokenSettings").onclick=function(){
+  reloadSavedToken().then(function(){showDlg("tokenDialog")}).catch(function(){toast("读取本机令牌失败")});
+};
+$("tokenSave").onclick=function(){
+  var token=$("gk").value.trim();
+  if(!token){toast("请填写 NovelAI 令牌，或点击清除");return}
+  kvSet("token",token);refreshTokenStatus();closeDlg("tokenDialog");toast("令牌已保存到本机浏览器");
+};
+$("tokenClear").onclick=function(){
+  $("gk").value="";kvSet("token",null);refreshTokenStatus();toast("已清除本机令牌");
+};
+$("tokenClose").onclick=function(){closeDlg("tokenDialog");reloadSavedToken()};
+$("tokenDialog").addEventListener("cancel",function(){reloadSavedToken()});
 
 /* ---- 网页版存储：只使用本机浏览器，不依赖 本地服务器 / /kv ---- */
 var db=null, memStore={};
@@ -821,7 +853,7 @@ function toJpeg(blob,max,q){max=max||1000;q=q||.88;return new Promise(function(r
     URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",q))};img.src=url})}
 async function generate(){
   var tk=$("gk").value.trim();
-  if(!tk){toast("请先填写 API 令牌");return}
+  if(!tk){toast("请先到顶栏「令牌设置」填写 NovelAI 令牌");return}
   var art=$("gs").value.trim(),ex=composeExtra();
   var prompt=[art,ex].filter(Boolean).join(", ");
   if(!prompt){toast("请先填写提示词");return}
@@ -961,7 +993,7 @@ function updGmg(){$("gmgw").hidden=!$("gmg").checked;$("gm").disabled=$("gmg").c
 $("gmg").addEventListener("change",updGmg);updGmg();
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 async function generateGroup(){
-  var tk=$("gk").value.trim();if(!tk){toast("请先填写 API 令牌");return}
+  var tk=$("gk").value.trim();if(!tk){toast("请先到顶栏「令牌设置」填写 NovelAI 令牌");return}
   var art=$("gs").value.trim(),ex=composeExtra("nai-diffusion-4-5-full"),prompt=[art,ex].filter(Boolean).join(", ");
   if(!prompt){toast("请先填写提示词");return}
   var ms=MODELS.map(function(x){return x[0]}).filter(function(x){return gms.indexOf(x)>=0});
@@ -1091,7 +1123,7 @@ $("vmg").onclick=async function(){
   if(!vmImgs.length){toast("先选至少一张图片");return}
   if(!vmMs.length){toast("先选至少一个模型");return}
   var tk=$("gk").value.trim()||(await kvGet("token"))||"";
-  if(!tk){toast("请先在「生图」里填写 API 令牌");return}
+  if(!tk){toast("请先到顶栏「令牌设置」填写 NovelAI 令牌");return}
   var btn=$("vmg"),total=vmImgs.length*vmMs.length;
   if(!vmOk){vmOk=1;btn.textContent="确认：约消耗 "+total*2+" Anlas";setTimeout(function(){if(vmOk){vmOk=0;if(!vmBusy)btn.textContent="开始制作"}},4000);return}
   vmOk=0;vmBusy=true;btn.disabled=true;
@@ -1370,7 +1402,7 @@ async function naiRequest(tk,body){
   return unzipFirst(await r.arrayBuffer())}
 async function refGen(it,btn){
   var tk=(await kvGet("token"))||$("gk").value.trim();
-  if(!tk){toast("请先在「生图」里填写并保存 API 令牌");return}
+  if(!tk){toast("请先到顶栏「令牌设置」填写并保存 NovelAI 令牌");return}
   var extra=$("ge").value.trim()||"1girl, solo",prompt=it.str+", "+extra,n=0;
   btn.disabled=true;
   for(var i=0;i<3;i++){
