@@ -6,7 +6,7 @@ const sandbox={module:{exports:{}}};runInNewContext(src,sandbox);
 const {center,position,label,apply}=sandbox.module.exports;
 assert.equal(label(center(0,0)),'A1');assert.equal(label(center(4,4)),'E5');assert.equal(label(center(2,2)),'C3');
 assert.equal(position(null).x,0.5);assert.equal(position(null).y,0.5);
-assert.throws(()=>center(5,0),RangeError);
+assert.throws(()=>center(5,0),{name:'RangeError'});
 function body(){return {parameters:{v4_prompt:{caption:{char_captions:[]}},v4_negative_prompt:{caption:{char_captions:[]}}}}}
 const chars=[{text:'red hair',uc:'blue hair',pos:center(0,1)},{text:'black hair',uc:'white hair',pos:center(4,3)}];
 let b=apply(body(),chars,true);assert.equal(b.parameters.use_coords,true);assert.equal(b.parameters.v4_prompt.use_coords,true);assert.equal(b.parameters.v4_negative_prompt.use_coords,true);
