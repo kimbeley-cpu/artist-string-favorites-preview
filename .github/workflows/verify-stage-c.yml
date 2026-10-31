@@ -24,3 +24,5 @@ jobs:
 
       - name: Stage F image-to-image
         run: node tests/verify-img2img.mjs
+      - name: Stage G wardrobe
+        run: node tests/verify-wardrobe.mjs

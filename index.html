@@ -169,6 +169,7 @@ dialog[open]{display:block}
 #gd .gen-section>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 #gd .gen-section[open]>summary{border-bottom:1px solid var(--line)}
 #gd .gen-section-body{padding:5px 14px 14px;min-width:0}
+#wardrobeActive .g2>div,#wardrobeActive .gcb,#wardrobeActive select{min-width:0}#wardrobeActive .gcb{overflow-wrap:anywhere}
 #gd .gen-section-body>.warn:first-child{margin-top:10px}
 #gd .gen-actions{position:sticky;bottom:0;z-index:2;background:var(--card);padding:12px 3px 2px;margin-top:10px;border-top:1px solid var(--line)}
 #gd .gen-actions .btn.pri{min-width:150px}
@@ -276,8 +277,17 @@ dialog[open]{display:block}
   <div class="warn" id="gpv"></div>
   <label style="font-weight:400"><input type="checkbox" id="gprev" checked> 把生成的图存为所用提示词模板 / 人物的预览图</label>
             </div></details>
-      <details class="gen-section"><summary>服装外观（预留）</summary><div class="gen-section-body">
-  <div class="warn">此处仅预留服装外观库的位置，暂未开发，不修改任何生成参数。</div>
+      <details class="gen-section" id="wardrobeActive"><summary>服装外观</summary><div class="gen-section-body">
+  <div class="warn">服装存档仅保存在本机浏览器；参考图只供查看。点「穿上」才会追加英文标签，不覆盖原提示词。</div>
+  <div class="g2"><div><label for="wardrobeMode">编辑模式</label><select class="f" id="wardrobeMode"><option value="random">随机抽取</option><option value="detail">详细定制</option></select></div><div><label for="wardrobeStyle">风格</label><select class="f" id="wardrobeStyle"></select></div></div>
+  <div class="row" id="wardrobeRandomActions"><button class="btn" type="button" id="wardrobeRandom">抽取未锁定格子</button></div>
+  <div class="g2"><div><label for="wardrobeCut">款式</label><select class="f" id="wardrobeCut"></select><label style="font-weight:400"><input type="checkbox" id="wardrobeLockCut"> 锁定款式</label></div><div><label for="wardrobeColor">颜色</label><select class="f" id="wardrobeColor"></select><label style="font-weight:400"><input type="checkbox" id="wardrobeLockColor"> 锁定颜色</label></div><div><label for="wardrobeDecoration">装饰</label><select class="f" id="wardrobeDecoration"></select><label style="font-weight:400"><input type="checkbox" id="wardrobeLockDecoration"> 锁定装饰</label></div><div><label for="wardrobeAccessory">配饰</label><select class="f" id="wardrobeAccessory"></select><label style="font-weight:400"><input type="checkbox" id="wardrobeLockAccessory"> 锁定配饰</label></div></div>
+  <label for="wardrobeExtra">自定义补充英文标签（逗号分隔）</label><input class="f" id="wardrobeExtra" placeholder="例如 ribbon, white gloves">
+  <label>将要追加的标签</label><div class="g2" aria-live="polite"><div class="str" id="wardrobePreview">（尚未选择服装）</div><div class="str" id="wardrobeChinese">（中文说明）</div></div>
+  <label for="wardrobeTarget">穿上目标（存档列表也使用此目标）</label><select class="f" id="wardrobeTarget"><option value="main">主提示词</option></select><div class="row"><button class="btn pri" type="button" id="wardrobeWear">穿上</button></div>
+  <div class="g2"><div><label for="wardrobeName">存档名称</label><input class="f" id="wardrobeName" maxlength="100" placeholder="给这套服装起名"></div><div><label for="wardrobeOwner">归属人物</label><select class="f" id="wardrobeOwner"><option value="">不归属人物</option></select></div></div>
+  <label for="wardrobeReference">参考图（PNG/JPG/WebP，≤2MB，只供查看）</label><input class="f" id="wardrobeReference" type="file" accept="image/png,image/jpeg,image/webp"><div class="warn" id="wardrobeReferenceStatus" role="status">未选择参考图</div><img id="wardrobeReferencePreview" hidden alt="服装参考图（只供查看）" style="max-width:100%;max-height:180px;object-fit:contain;margin-top:8px"><div class="row"><button class="btn" type="button" id="wardrobeReferenceClear">清除参考图</button><button class="btn" type="button" id="wardrobeSave" disabled>存档为新套装</button></div>
+  <div class="warn" id="wardrobeStatus" role="status">正在读取本机服装存档…</div><label>服装存档（按人物分组）</label><div class="vl" id="wardrobeArchives"></div><label>已移除（可恢复）</label><div class="vl" id="wardrobeRemoved"></div>
       </div></details>
 <details class="gen-section" open><summary>负面提示词</summary><div class="gen-section-body">
   <label for="gn">负面提示词</label>
@@ -464,6 +474,7 @@ dialog[open]{display:block}
 <script src="nai-character-positions.js"></script>
 <script src="image-recycle.js"></script>
 <script src="novelai-img2img.js"></script>
+<script src="wardrobe.js"></script>
 <script>
 (function(){
 /* Preview-only: prevent accidental Supabase calls from page scripts. */
@@ -756,8 +767,9 @@ $("sv").onclick=function(){
 
 /* ---- 备份 ---- */
 $("exp").onclick=function(){
-  if(!items.length&&!lib.prompts.length&&!lib.negs.length&&!lib.chars.length&&!lib.vibes.length){toast("还没有内容可以导出");return}
-  var blob=new Blob([JSON.stringify({v:2,items:items,lib:lib})],{type:"application/json"});
+  if(!items.length&&!lib.prompts.length&&!lib.negs.length&&!lib.chars.length&&!lib.vibes.length&&!(wardrobeReady&&wardrobeRecords.length)){toast("还没有内容可以导出");return}
+  var data={v:2,items:items,lib:lib};if(wardrobeReady)data.wardrobe=wardrobeRecords;
+  var blob=new Blob([JSON.stringify(data)],{type:"application/json"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);
   a.download="画师串备份-"+new Date().toISOString().slice(0,10)+".json";a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href)},1000);toast("已导出备份文件")};
@@ -765,12 +777,13 @@ $("imp").onclick=function(){$("impf").click()};
 $("impf").onchange=function(){
   var f=this.files[0];this.value="";if(!f)return;
   var fr=new FileReader();
-  fr.onload=function(){
-    try{var d=JSON.parse(fr.result),n=0;
+  fr.onload=async function(){
+    try{var d=JSON.parse(fr.result),n=0,w=0;if(Array.isArray(d.wardrobe)&&!wardrobeReady)await loadWardrobe();
       (d.items||[]).forEach(function(x){if(x&&x.str&&!items.some(function(y){return y.id===x.id})){items.push(x);n++}});
       var L=d.lib||{};["prompts","negs","chars","vibes"].forEach(function(k){(L[k]||[]).forEach(function(x){if(!lib[k].some(function(y){return y.id===x.id}))lib[k].push(x)})});
       (L.marked||[]).forEach(function(k){if(lib.marked.indexOf(k)<0)lib.marked.push(k)});saveLib();
-      save();render();renderGenLib();toast("导入了 "+n+" 条")}catch(e){toast("这不是有效的备份文件")}};
+      if(Array.isArray(d.wardrobe)){d.wardrobe.filter(wardrobeValidRecord).forEach(function(x){if(!wardrobeRecords.some(function(y){return y.id===x.id})){if(!wardrobeValidReference(x.reference))delete x.reference;wardrobeRecords.push(x);w++}});wardrobePersist()}
+      save();render();renderGenLib();toast("导入了 "+n+" 条"+(Array.isArray(d.wardrobe)?"，导入了 "+w+" 套服装":""))}catch(e){toast("这不是有效的备份文件")}};
   fr.readAsText(f)};
 
 $("add").onclick=function(){if(view==="gallery")openEdit(null);else openLib(view,null)};
@@ -1527,7 +1540,7 @@ function renderGc(){
       })(x,y);
       w.appendChild(grid)
     }h.appendChild(w)});
-  $("gca").hidden=gChars.length>=6;updGpv()}
+  $("gca").hidden=gChars.length>=6;updGpv();wardrobeTargets()}
 $("gca").onclick=function(){if(gChars.length>=6)return;gChars.push({lib:"",text:"",uc:"",pos:{x:0.5,y:0.5},open:false});saveGenCfg();renderGc();var t=$("gcl").querySelectorAll("textarea");if(t.length)t[t.length-2].focus()};
 $("gcsep").addEventListener("change",function(){saveGenCfg();updGpv()});
 $("gm").addEventListener("change",updGpv);
@@ -1535,6 +1548,101 @@ function composeExtra(m){
   var p=sepOK(m)?[]:charList().map(function(c){return c.text});
   var t=lib.prompts.filter(function(x){return x.id===$("gtp").value})[0];if(t)p.push(t.text);
   var e=$("ge").value.trim();if(e)p.push(e);return p.join(", ")}
+/* ---- 阶段 G：服装外观库；独立本机存档，不接入生图请求 ---- */
+var wardrobeRecords=[],wardrobeCurrent={},wardrobeReference="",wardrobeReady=false,wardrobeRefBusy=false,wardrobeRefVersion=0,wardrobeTargetChars=[];
+function wardrobeId(key){return key.charAt(0).toUpperCase()+key.slice(1)}
+function wardrobeOption(select,value,text){var o=document.createElement("option");o.value=value;o.textContent=text;select.appendChild(o)}
+function wardrobeCopy(outfit){var o={extra:typeof outfit.extra==="string"?outfit.extra:""};Wardrobe.slots.forEach(function(s){var v=outfit[s.key];o[s.key]=v&&typeof v.en==="string"?{zh:typeof v.zh==="string"?v.zh:v.en,en:v.en}:null});return o}
+function wardrobeLocks(){var o={};Wardrobe.slots.forEach(function(s){o[s.key]=$("wardrobeLock"+wardrobeId(s.key)).checked});return o}
+function wardrobePreview(){
+  $("wardrobePreview").textContent=Wardrobe.outfitToTags(wardrobeCurrent)||"（尚未选择服装）";
+  $("wardrobeChinese").textContent=Wardrobe.slots.map(function(s){var v=wardrobeCurrent[s.key];return s.zh+"："+(v?v.zh:"未选")}).join("；")+(wardrobeCurrent.extra?"；自定义："+wardrobeCurrent.extra:"");
+  $("wardrobeSave").disabled=!wardrobeReady||wardrobeRefBusy
+}
+function wardrobeEditor(){
+  var pool=Wardrobe.styles[$("wardrobeStyle").value],detail=$("wardrobeMode").value==="detail";
+  $("wardrobeRandomActions").hidden=detail;
+  Wardrobe.slots.forEach(function(s){var sl=$("wardrobe"+wardrobeId(s.key)),v=wardrobeCurrent[s.key];sl.innerHTML="";wardrobeOption(sl,"","不选择");
+    pool[s.key].forEach(function(x){wardrobeOption(sl,x.en,x.zh+" · "+x.en)});
+    if(v&&!pool[s.key].some(function(x){return x.en===v.en}))wardrobeOption(sl,v.en,v.zh+" · "+v.en+"（保留）");
+    sl.value=v?v.en:"";sl.disabled=!detail
+  });$("wardrobeExtra").value=wardrobeCurrent.extra||"";wardrobePreview()
+}
+function wardrobeTargets(){
+  var sl=$("wardrobeTarget"),old=sl.value,chosen=old.indexOf("role:")===0?wardrobeTargetChars[Number(old.slice(5))]:null;
+  sl.innerHTML="";wardrobeOption(sl,"main","主提示词");wardrobeTargetChars=gChars.slice();
+  gChars.forEach(function(c,i){var person=lib.chars.filter(function(x){return x.id===c.lib})[0];wardrobeOption(sl,"role:"+i,"角色 "+(i+1)+(person?"："+person.name:"（自定义）"))});
+  var at=chosen?gChars.indexOf(chosen):-1;sl.value=at>=0?"role:"+at:"main"
+}
+function wardrobeOwners(){
+  var sl=$("wardrobeOwner"),v=sl.value,old=sl.options[sl.selectedIndex],label=old?old.textContent:"已不在人物库";sl.innerHTML="";wardrobeOption(sl,"","不归属人物");
+  lib.chars.forEach(function(x){wardrobeOption(sl,x.id,x.name)});
+  if(v&&!lib.chars.some(function(x){return x.id===v}))wardrobeOption(sl,v,label);
+  sl.value=v;wardrobeTargets()
+}
+function wardrobeWear(outfit){
+  var tags=Wardrobe.outfitToTags(outfit);if(!tags){toast("请先选择或抽取服装");return}
+  var target=$("wardrobeTarget").value;
+  if(target==="main")$("ge").value=Wardrobe.appendTags($("ge").value,tags);
+  else{var c=wardrobeTargetChars[Number(target.slice(5))];if(!c||gChars.indexOf(c)<0){wardrobeTargets();toast("目标角色已移除，请重新选择");return}c.text=Wardrobe.appendTags(c.text,tags);renderGc()}
+  saveGenCfg();updGpv();toast("已追加服装标签")
+}
+function wardrobeValidReference(src){return typeof src==="string"&&src.length<=Math.ceil(2*1024*1024/3)*4+32&&/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(src)}
+function wardrobeSetReference(src){
+  wardrobeRefVersion++;wardrobeRefBusy=false;wardrobeReference=wardrobeValidReference(src)?src:"";
+  var im=$("wardrobeReferencePreview");im.hidden=!wardrobeReference;if(wardrobeReference)im.src=wardrobeReference;else im.removeAttribute("src");
+  $("wardrobeReferenceStatus").textContent=wardrobeReference?"参考图仅供本机查看，不参与生成":"未选择参考图";wardrobePreview()
+}
+function wardrobeReadReference(file){
+  if(!file)return;if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>2*1024*1024){toast("请选择不超过 2MB 的 PNG/JPG/WebP 图片");return}
+  var version=++wardrobeRefVersion,reader=new FileReader();wardrobeRefBusy=true;wardrobePreview();$("wardrobeReferenceStatus").textContent="正在读取参考图…";
+  function fail(){if(version!==wardrobeRefVersion)return;wardrobeRefBusy=false;wardrobePreview();$("wardrobeReferenceStatus").textContent="参考图读取失败，请重新选择；原参考图保留"}
+  reader.onerror=reader.onabort=fail;reader.onload=function(){if(version!==wardrobeRefVersion)return;if(!wardrobeValidReference(reader.result)){fail();return}
+    var im=new Image();im.onerror=fail;im.onload=function(){if(version===wardrobeRefVersion)wardrobeSetReference(reader.result)};im.src=reader.result
+  };reader.readAsDataURL(file)
+}
+function wardrobePersist(){kvSet("wardrobe",wardrobeRecords);renderWardrobeArchive()}
+function wardrobeRemove(id,removed){var x=wardrobeRecords.filter(function(r){return r.id===id})[0];if(!x)return;x.removedAt=removed?Date.now():null;wardrobePersist();toast(removed?"已移到「已移除」，可恢复":"已恢复服装存档")}
+function wardrobeLoad(x){
+  wardrobeCurrent=wardrobeCopy(x.outfit);$("wardrobeStyle").value=Wardrobe.styles[x.style]?x.style:"sweet";$("wardrobeName").value=x.name;
+  wardrobeOwners();if(x.owner&&!Array.prototype.some.call($("wardrobeOwner").options,function(o){return o.value===x.owner}))wardrobeOption($("wardrobeOwner"),x.owner,x.ownerName||"已不在人物库");$("wardrobeOwner").value=x.owner||"";
+  wardrobeSetReference(x.reference);wardrobeEditor();toast("已载入编辑区；存档会另存为新套装")
+}
+function renderWardrobeArchive(){
+  [false,true].forEach(function(removed){var h=$(removed?"wardrobeRemoved":"wardrobeArchives"),groups=Object.create(null);h.innerHTML="";
+    wardrobeRecords.filter(function(x){return !!x.removedAt===removed}).forEach(function(x){(groups[x.owner||""]=groups[x.owner||""]||[]).push(x)});
+    var keys=Object.keys(groups);if(!keys.length){h.textContent=removed?"（没有已移除的服装）":"（尚无服装存档）";return}
+    keys.forEach(function(owner){var group=document.createElement("div");group.className="gcb";var title=document.createElement("b"),person=lib.chars.filter(function(p){return p.id===owner})[0];title.textContent=owner?(person?person.name:(groups[owner][0].ownerName||"未知人物")+"（已不在人物库）"):"未归属人物";group.appendChild(title);
+      groups[owner].forEach(function(x){var box=document.createElement("div");box.className="gcb";var name=document.createElement("b");name.textContent=x.name;box.appendChild(name);
+        var tags=document.createElement("div");tags.className="str";tags.textContent=Wardrobe.outfitToTags(x.outfit);box.appendChild(tags);
+        if(wardrobeValidReference(x.reference)){var im=document.createElement("img");im.src=x.reference;im.alt=x.name+" · 参考图（只供查看）";im.loading="lazy";im.style.cssText="max-width:100%;max-height:140px;object-fit:contain";box.appendChild(im)}
+        var row=document.createElement("div");row.className="row";
+        function button(text,fn){var b=document.createElement("button");b.type="button";b.className="btn";b.textContent=text;b.onclick=fn;row.appendChild(b)}
+        if(removed)button("恢复",function(){wardrobeRemove(x.id,false)});
+        else{button("载入",function(){wardrobeLoad(x)});button("穿上",function(){wardrobeWear(x.outfit)});button("移除",function(){wardrobeRemove(x.id,true)})}
+        box.appendChild(row);group.appendChild(box)
+      });h.appendChild(group)
+    })
+  })
+}
+function wardrobeInit(){
+  Object.keys(Wardrobe.styles).forEach(function(k){wardrobeOption($("wardrobeStyle"),k,Wardrobe.styles[k].zh)});$("wardrobeStyle").value="sweet";
+  $("wardrobeMode").onchange=wardrobeEditor;
+  $("wardrobeStyle").onchange=function(){var pool=Wardrobe.styles[this.value],locks=wardrobeLocks();Wardrobe.slots.forEach(function(s){var v=wardrobeCurrent[s.key];if(v&&!locks[s.key]&&!pool[s.key].some(function(x){return x.en===v.en}))wardrobeCurrent[s.key]=null});wardrobeEditor()};
+  $("wardrobeRandom").onclick=function(){wardrobeCurrent=Wardrobe.randomOutfit($("wardrobeStyle").value,wardrobeCurrent,wardrobeLocks());wardrobeEditor()};
+  Wardrobe.slots.forEach(function(s){$("wardrobe"+wardrobeId(s.key)).onchange=function(){var value=this.value;wardrobeCurrent[s.key]=Wardrobe.styles[$("wardrobeStyle").value][s.key].filter(function(x){return x.en===value})[0]||(wardrobeCurrent[s.key]&&wardrobeCurrent[s.key].en===value?wardrobeCurrent[s.key]:null);wardrobePreview()}});
+  $("wardrobeExtra").oninput=function(){wardrobeCurrent.extra=this.value;wardrobePreview()};$("wardrobeWear").onclick=function(){wardrobeWear(wardrobeCurrent)};
+  $("wardrobeReference").onchange=function(){var f=this.files[0];this.value="";wardrobeReadReference(f)};$("wardrobeReferenceClear").onclick=function(){wardrobeSetReference("")};
+  $("wardrobeSave").onclick=function(){
+    if(!wardrobeReady||wardrobeRefBusy)return;var name=$("wardrobeName").value.trim();if(!name){toast("请填写服装存档名称");$("wardrobeName").focus();return}if(!Wardrobe.outfitToTags(wardrobeCurrent)){toast("请先选择或抽取服装");return}
+    var owner=$("wardrobeOwner").value,sl=$("wardrobeOwner"),label=sl.options[sl.selectedIndex];wardrobeRecords.push({id:uid(),name:name,owner:owner,ownerName:owner&&label?label.textContent:"",style:$("wardrobeStyle").value,outfit:wardrobeCopy(wardrobeCurrent),reference:wardrobeReference,createdAt:Date.now(),removedAt:null});wardrobePersist();$("wardrobeName").value="";wardrobeSetReference("");toast("已存档到本机浏览器")
+  };wardrobeEditor()
+}
+function wardrobeValidRecord(x){return x&&typeof x.id==="string"&&typeof x.name==="string"&&x.outfit&&typeof x.outfit==="object"}
+function loadWardrobe(){return kvGet("wardrobe").then(function(records){wardrobeRecords=Array.isArray(records)?records.filter(wardrobeValidRecord):[];wardrobeReady=true;$("wardrobeStatus").textContent="服装存档保存在此浏览器，可随「导出备份」保存并导入恢复";wardrobePreview();renderWardrobeArchive()})}
+wardrobeInit();
+
+
 function renderGenLib(){
   var h=$("gch");h.innerHTML="";if(!lib.chars.length)h.textContent="（还没有人物）";
   lib.chars.forEach(function(x){var b=document.createElement("button");b.className="chip"+(gSel.indexOf(x.id)>=0?" on":"");b.textContent=x.name;
@@ -1543,7 +1651,7 @@ function renderGenLib(){
       saveGenCfg();renderGc();renderGenLib()};h.appendChild(b)});
   var sl=$("gtp"),v=sl.value;sl.innerHTML="";var o=document.createElement("option");o.value="";o.textContent="不使用";sl.appendChild(o);
   lib.prompts.forEach(function(x){var e=document.createElement("option");e.value=x.id;e.textContent=x.name;sl.appendChild(e)});
-  sl.value=v;updGpv();renderGenVibeLib();renderGenNeg()}
+  sl.value=v;updGpv();renderGenVibeLib();renderGenNeg();wardrobeOwners();renderWardrobeArchive()}
 function renderGenNeg(){
   var h=$("gnl");h.innerHTML="";if(!lib.negs.length){h.textContent="（负面词库还是空的，在「负面词」页新建，或点下面「把当前负面词存入库」）";return}
   var cur=norm($("gn").value);
@@ -1660,7 +1768,7 @@ async function refGen(it,btn){
 function clTouch(){}
 
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(function(){});
-openDB().then(load).then(function(d){items=d;loadGenCfg();return kvGet("lib")}).then(function(l){if(l){lib=l;lib.prompts=lib.prompts||[];lib.chars=lib.chars||[];lib.marked=lib.marked||[];lib.vibes=lib.vibes||[];lib.negs=lib.negs||[]}setView("gallery");renderGenLib()});
+openDB().then(load).then(function(d){items=d;loadGenCfg();return kvGet("lib")}).then(function(l){if(l){lib=l;lib.prompts=lib.prompts||[];lib.chars=lib.chars||[];lib.marked=lib.marked||[];lib.vibes=lib.vibes||[];lib.negs=lib.negs||[]}setView("gallery");renderGenLib();return loadWardrobe()});
 })();
 </script>
 </body>

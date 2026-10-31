@@ -44,14 +44,14 @@ check((panel.match(/<details class="gen-section"/g)||[]).length === (panel.match
 
 const tokenDlg=html.slice(html.indexOf('<dialog id="tokenDialog"'),html.indexOf('<dialog id="gd">'));
 const ordered=Array.from(panel.matchAll(/<summary>([^<]*)<\/summary>/g), x=>x[1]);
-assert.deepEqual(ordered, ['画师串','角色栏','提示词','服装外观（预留）','负面提示词','模型与基础参数','Vibe Transfer（可选）','读取 NovelAI PNG 参数','图生图（Image to Image）','保存与下载设置']);
+assert.deepEqual(ordered, ['画师串','角色栏','提示词','服装外观','负面提示词','模型与基础参数','Vibe Transfer（可选）','读取 NovelAI PNG 参数','图生图（Image to Image）','保存与下载设置']);
 check((html.match(/id="gk"/g)||[]).length===1 && tokenDlg.includes('id="gk"') && !panel.includes('id="gk"'), 'Token input moved to header dialog');
 for(const id of ['tokenSettings','tokenDialog','tokenSave','tokenClear','tokenClose','tokenStatus']){
   check(html.includes('id="'+id+'"'),'Token setting control present: '+id);
 }
 check(html.includes('kvSet("token",null)') && html.includes('kvSet("token",token)'), 'Original token key retained for save and clear');
 check(html.includes('请先到顶栏「令牌设置」填写 NovelAI 令牌'),'Generation missing-token guidance updated');
-check(html.includes('服装外观（预留）') && !html.includes('id="wardrobeActive"'),'Wardrobe placeholder is nonfunctional');
+check(html.includes('<summary>服装外观</summary>') && html.includes('id="wardrobeActive"') && html.includes('src="wardrobe.js"'),'Wardrobe section is enabled');
 
 // Static checks do not establish live browser usability or API compatibility.
 
