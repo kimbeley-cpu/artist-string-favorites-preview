@@ -63,5 +63,9 @@ check(html.includes('manual:$("gmanual").checked'),'Stage D mode persists in set
 check(!panel.includes('<summary>多角色控制（阶段 D）</summary>'),'Duplicate character help panel removed');
 check(html.includes('c.checked=vibeSelection[selectionKey]===true'),'Vibe checkbox state restored per item');
 check(html.includes('vibeSelection:o')||html.includes('vibeSelection:vibeSelection'),'Vibe checkbox states persisted locally');
+check(html.includes('st.oninput=st.onchange=saveStrength') && html.includes('vibeStrength[selectionKey]=value'),'Vibe strength input changes persisted per item');
+check(html.includes('savedStrength=vibeStrength[selectionKey]') && html.includes('?savedStrength:v.str'),'Saved Vibe strength preferred when rendering');
+check(html.includes('vibeStrength:vibeStrength'),'Vibe strength states persisted locally');
+check(html.includes('var tmpStrength=vibeStrength[vibeSelectionKey(v,"t",null)]') && html.includes('if(typeof tmpStrength==="number"&&Number.isFinite(tmpStrength)&&tmpStrength>=0&&tmpStrength<=1)vibeStrength[vibeSelectionKey(v,"e",it)]=tmpStrength'),'Vibe strength migrates from temporary to card only when valid');
 check(html.includes('resetNewVibeSelection(added)'),'New Vibes default unchecked');
 check(html.includes('if(!c||!c.checked||!c.dataset.src)return'),'Only selected Vibes sent to generation');

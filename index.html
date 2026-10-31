@@ -827,7 +827,7 @@ $("vfi").onchange=function(){
     fr.onload=function(){try{parseVibes(fr.result,f.name).forEach(function(v){draftVibes.push(v)});drawVibes()}catch(e){toast("读取失败："+e.message)}};
     fr.readAsText(f)});this.value=""};
 function mkey(m){return m.replace("nai-diffusion-","v").replace(/-preview$/,"").replace(/-(full|curated)/,"$1")}
-var tmpVibes=[],gvKey="",lastTmpUsed=[],vibeSelection={};
+var tmpVibes=[],gvKey="",lastTmpUsed=[],vibeSelection={},vibeStrength={};
 function vibeIdentity(v){
   // Prefer saved Vibe IDs; imported .naiv4vibe files may not have one.
   if(v.id)return "id:"+v.id;
@@ -869,7 +869,7 @@ function renderGv(force){
     d.appendChild(c);
     if(v.thumb){var im=document.createElement("img");im.src=v.thumb;im.alt="";d.appendChild(im)}
     var n=document.createElement("span");n.textContent=v.name+(src==="t"?"（本次添加）":"");d.appendChild(n);
-    var st=document.createElement("input");st.type="number";st.step="0.05";st.min="0";st.max="1";st.value=v.str;st.className="f";st.title="强度";d.appendChild(st);
+    var st=document.createElement("input"),savedStrength=vibeStrength[selectionKey];st.type="number";st.step="0.05";st.min="0";st.max="1";st.value=typeof savedStrength==="number"&&Number.isFinite(savedStrength)&&savedStrength>=0&&savedStrength<=1?savedStrength:v.str;st.className="f";st.title="强度";function saveStrength(){var value=Number(st.value);if(st.value!==""&&Number.isFinite(value)&&value>=0&&value<=1){vibeStrength[selectionKey]=value;saveGenCfg()}}st.oninput=st.onchange=saveStrength;d.appendChild(st);
     if(src==="t"){var x=document.createElement("button");x.textContent="移除";x.onclick=function(){tmpVibes.splice(i,1);renderGv(true)};d.appendChild(x)}
     box.appendChild(d)
   }
@@ -1069,14 +1069,14 @@ async function saveGen(seed){
     items.unshift(it);$("gname").value="";$("gnote").value=""}
   if($("gkeep").checked&&lastTmpUsed.length){
     it.vibes=it.vibes||[];
-    lastTmpUsed.forEach(function(v){if(!it.vibes.some(function(x){return x.encs[0].enc===v.encs[0].enc}))it.vibes.push(v);vibeSelection[vibeSelectionKey(v,"e",it)]=vibeSelection[vibeSelectionKey(v,"t",null)]===true});saveGenCfg();
+    lastTmpUsed.forEach(function(v){if(!it.vibes.some(function(x){return x.encs[0].enc===v.encs[0].enc}))it.vibes.push(v);vibeSelection[vibeSelectionKey(v,"e",it)]=vibeSelection[vibeSelectionKey(v,"t",null)]===true;var tmpStrength=vibeStrength[vibeSelectionKey(v,"t",null)];if(typeof tmpStrength==="number"&&Number.isFinite(tmpStrength)&&tmpStrength>=0&&tmpStrength<=1)vibeStrength[vibeSelectionKey(v,"e",it)]=tmpStrength});saveGenCfg();
     tmpVibes=tmpVibes.filter(function(v){return lastTmpUsed.indexOf(v)<0});lastTmpUsed=[]}
   lastBlob=null;save();render();fillGt($("gt").value);renderGv(true);
   toast("已保存到「"+it.name+"」"+(seed!=null?"，种子 "+seed:""))}
 var GF=["ge","gn","gm","gmc","gz","gp","gc","gfmt"];
-function saveGenCfg(){var o={vibeSelection:vibeSelection,auto:$("gauto").checked,dl:$("gdlauto").checked,gmg:$("gmg").checked,gms:gms,sep:$("gcsep").checked,manual:$("gmanual").checked,chars:gChars.map(function(c){return {lib:c.lib,text:c.text,uc:c.uc,pos:c.pos||null}})};GF.forEach(function(id){o[id]=$(id).value});kvSet("gen",o)}
+function saveGenCfg(){var o={vibeSelection:vibeSelection,vibeStrength:vibeStrength,auto:$("gauto").checked,dl:$("gdlauto").checked,gmg:$("gmg").checked,gms:gms,sep:$("gcsep").checked,manual:$("gmanual").checked,chars:gChars.map(function(c){return {lib:c.lib,text:c.text,uc:c.uc,pos:c.pos||null}})};GF.forEach(function(id){o[id]=$(id).value});kvSet("gen",o)}
 function loadGenCfg(){kvGet("gen").then(function(o){
-  if(!o)return;vibeSelection=o.vibeSelection&&typeof o.vibeSelection==="object"&&!Array.isArray(o.vibeSelection)?o.vibeSelection:{};$("gcsep").checked=o.sep!==false;$("gmanual").checked=!!o.manual;setChars(o.chars||[]);GF.forEach(function(id){if(o[id]!=null)$(id).value=o[id]});$("gauto").checked=o.auto!==false;$("gdlauto").checked=!!o.dl;if(o.gm)setModel(o.gm);gms=o.gms||[];$("gmg").checked=!!o.gmg;updGmg()})}
+  if(!o)return;vibeSelection=o.vibeSelection&&typeof o.vibeSelection==="object"&&!Array.isArray(o.vibeSelection)?o.vibeSelection:{};vibeStrength=o.vibeStrength&&typeof o.vibeStrength==="object"&&!Array.isArray(o.vibeStrength)?o.vibeStrength:{};$("gcsep").checked=o.sep!==false;$("gmanual").checked=!!o.manual;setChars(o.chars||[]);GF.forEach(function(id){if(o[id]!=null)$(id).value=o[id]});$("gauto").checked=o.auto!==false;$("gdlauto").checked=!!o.dl;if(o.gm)setModel(o.gm);gms=o.gms||[];$("gmg").checked=!!o.gmg;updGmg()})}
 GF.concat(["gauto","gdlauto","gmg"]).forEach(function(id){$(id).addEventListener("input",saveGenCfg);$(id).addEventListener("change",saveGenCfg)});
 $("gs").addEventListener("input",function(){renderGv()});
 function openGen(it){
