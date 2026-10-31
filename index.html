@@ -761,7 +761,7 @@ $("sv").onclick=function(){
   if(!str){toast("请先填写画师串");$("fs").focus();return}
   var old=editing?byId(editing):null;
   var rec={id:editing||uid(),name:name||"未命名",str:str,neg:$("fng").value.trim(),tags:parseTags($("ft").value),note:$("fm").value.trim(),rating:+$("fr").value,link:$("fl").value.trim(),imgs:draftImgs.slice(),vibes:draftVibes.slice(),metas:draftMetas.slice(),trashImgs:old&&Array.isArray(old.trashImgs)?old.trashImgs.slice():[],t:old?(old.t||Date.now()):Date.now()};
-  if(old){var remaining=draftImgs.slice(),removed=[];(old.imgs||[]).forEach(function(src,i){var p=remaining.indexOf(src);if(p>=0)remaining.splice(p,1);else removed.push(i)});if(removed.length)ASFImageRecycle.move(old,removed);rec.trashImgs=old.trashImgs.slice()}
+  if(old){var remaining=draftImgs.slice(),removed=[];(old.imgs||[]).forEach(function(src,i){var p=remaining.indexOf(src);if(p>=0)remaining.splice(p,1);else removed.push(i)});if(removed.length)ASFImageRecycle.move(old,removed);rec.trashImgs=Array.isArray(old.trashImgs)?old.trashImgs.slice():[]}
   if(editing){items=items.map(function(x){return x.id===editing?rec:x})}else{items.unshift(rec)}
   save();closeDlg("ed");render();toast("已保存")};
 
