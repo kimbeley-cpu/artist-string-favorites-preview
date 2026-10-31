@@ -364,7 +364,7 @@ dialog[open]{display:block}
   <div class="g2"><div><label for="gfmt">下载格式</label><select class="f" id="gfmt"><option value="png">PNG（原图，保留生成信息）</option><option value="jpg">JPG（体积小）</option></select></div>
   <div><label style="font-weight:400;margin-top:32px"><input type="checkbox" id="gdlauto"> 生成后自动下载</label></div></div>
       </div></details>
-      <div class="gen-actions"><div class="row"><button class="btn" id="gx">关闭</button><button class="btn pri" id="gg">生成</button></div></div>
+      <div class="gen-actions"><div class="row"><span class="warn" id="img2badge" hidden></span><button class="btn" id="gx">关闭</button><button class="btn pri" id="gg">生成</button></div></div>
     </section>
     <section class="gen-preview" aria-label="NovelAI 生成预览">
       <div class="gen-preview-heading"><strong>生成预览</strong><small>结果、下载与收藏</small></div>
@@ -977,7 +977,7 @@ function img2Set(src,name){
     if(!image.naturalWidth||!image.naturalHeight||image.naturalWidth*image.naturalHeight>18000000){$("img2status").textContent="底图像素过大或无效";return}
     img2Base={src:src,width:image.naturalWidth,height:image.naturalHeight,name:name||"图片"};$("img2pad").checked=false;
     $("img2preview").src=src;$("img2preview").style.display="block";
-    $("img2status").textContent="已选择底图："+img2Base.name;img2Size()
+    $("img2status").textContent="已选择底图："+img2Base.name;$("img2badge").textContent="将以图生图生成 · 底图："+img2Base.name;$("img2badge").hidden=false;img2Size()
   };
   image.onerror=function(){$("img2status").textContent="图片无法解码，请选择有效的 PNG/JPG/WebP"};
   image.src=src
@@ -1003,7 +1003,7 @@ $("gd").addEventListener("paste",function(e){var items0=e.clipboardData&&e.clipb
 $("img2saved").onchange=function(){var value=this.value;if(!value)return;var sep=value.lastIndexOf(":"),it=byId(value.slice(0,sep)),i=+value.slice(sep+1);
   if(it&&it.imgs&&it.imgs[i])try{img2Set(it.imgs[i],it.name+" · 图片 "+(i+1))}catch(e){$("img2status").textContent=e.message}};
 $("img2clear").onclick=function(){img2Base=null;$("img2pad").checked=false;$("img2preview").removeAttribute("src");$("img2preview").style.display="none";$("img2saved").value="";
-  $("img2status").textContent="未选择底图：继续普通文生图。";img2Size()};
+  $("img2status").textContent="未选择底图：继续普通文生图。";$("img2badge").textContent="";$("img2badge").hidden=true;img2Size()};
 $("img2pad").addEventListener("change",img2Size);
 $("img2nearest").onclick=function(){
   if(!img2Base)return;
@@ -1015,7 +1015,9 @@ function img2Prepare(){
   if(!img2Base)return null;
   var t=$("gz").value.split("x").map(Number),r=NovelAIImageToImage.containRect(img2Base.width,img2Base.height,t[0],t[1]);
   if(r.padded&&!$("img2pad").checked)throw new Error("底图与生成尺寸宽高比不一致：请先切换到最接近的尺寸，或主动选择留白适配");
-  var s=+$("img2strength").value,n=+$("img2noise").value;
+  var sv=$("img2strength").value.trim(),nv=$("img2noise").value.trim();
+  if(!sv||!nv)throw new Error("重绘强度和噪声不能为空");
+  var s=+sv,n=+nv;
   if(!Number.isFinite(s)||s<0||s>1||!Number.isFinite(n)||n<0||n>1)throw new Error("重绘强度和噪声必须在 0～1 之间");
   var img=new Image();
   return new Promise(function(resolve,reject){
@@ -1104,7 +1106,7 @@ async function generate(){
   applyChars(body);
   if(img2Base){try{var base=await img2Prepare();NovelAIImageToImage.apply(body,base.png,base.strength,base.noise)}catch(err){$("gres").textContent="图生图底图处理失败："+err.message;return}}
   var btn=$("gg"),box=$("gres");
-  try{var vb=collectVibes(body.model);lastTmpUsed=vb.tmp;lastMeta={m:body.model,z:$("gz").value,p:body.parameters.steps,c:body.parameters.scale,s:seed,e:ex,ch:sepOK(body.model)?charList():[],manual:$("gmanual").checked,n:neg,v:vb.names,img2img:!!img2Base,img2strength:img2Base?+$("img2strength").value:null,img2noise:img2Base?+$("img2noise").value:null};
+  try{var vb=collectVibes(body.model);lastTmpUsed=vb.tmp;lastMeta={m:body.model,z:$("gz").value,p:body.parameters.steps,c:body.parameters.scale,s:seed,e:ex,ch:sepOK(body.model)?charList():[],manual:$("gmanual").checked,n:neg,v:vb.names,img2img:!!img2Base,img2strength:base?base.strength:null,img2noise:base?base.noise:null};
     if(vb.img.length){var P=body.parameters;P.reference_image_multiple=vb.img;P.reference_strength_multiple=vb.str;P.reference_information_extracted_multiple=vb.ie;P.normalize_reference_strength_multiple=true}
   }catch(e){$("gres").textContent="生成失败："+e.message;$("gres").style.color="var(--acc)";return}
 btn.disabled=true;btn.textContent="生成中…";box.textContent="";box.style.color="";$("gdlrow").hidden=true;$("gsave").hidden=true;

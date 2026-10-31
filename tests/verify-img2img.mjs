@@ -20,7 +20,7 @@ assert.equal(b.action,"img2img");assert.equal(b.parameters.image,"YWJjZA==");ass
 assert.equal(b.parameters.seed,2);assert.equal(b.parameters.v4_prompt.use_coords,true);assert.equal(b.parameters.reference_image_multiple[0],"vibe");
 assert.throws(()=>api.apply({parameters:{}},"bad",0.5,0.1));
 assert.throws(()=>api.apply({parameters:{}},"YWJjZA==",1.2,0.1));
-for(const id of ["img2drop","img2file","img2saved","img2preview","img2status","img2strength","img2noise","img2size","img2ratioActions","img2nearest","img2pad","img2clear"])assert.ok(html.includes('id="'+id+'"'),id);
+for(const id of ["img2drop","img2file","img2saved","img2preview","img2status","img2strength","img2noise","img2size","img2ratioActions","img2nearest","img2pad","img2clear","img2badge"])assert.ok(html.includes('id="'+id+'"'),id);
 const panel=html.slice(html.indexOf('<dialog id="gd">'),html.indexOf('<dialog id="bd">'));
 assert.ok(panel.indexOf('读取 NovelAI PNG 参数')<panel.indexOf('图生图（Image to Image）'));
 assert.ok(panel.indexOf('图生图（Image to Image）')<panel.indexOf('保存与下载设置'));
@@ -29,6 +29,9 @@ assert.match(html,/NovelAIImageToImage\.apply\(body,sharedImg2\.png/);
 assert.match(html,/ctx\.drawImage\(img,r\.x,r\.y,r\.width,r\.height\)/);
 assert.match(html,/closestSize\(img2Base\.width,img2Base\.height/);
 assert.match(html,/if\(r\.padded&&!\$\("img2pad"\)\.checked\)throw new Error/);
+assert.match(html,/\$\("img2clear"\)\.onclick=function\(\)\{[^}]*\$\("img2badge"\)\.hidden=true/);
+assert.match(html,/function img2Set\(src,name\)\{[\s\S]*?\$\("img2badge"\)\.hidden=false/);
+assert.match(html,/var sv=\$\("img2strength"\)\.value\.trim\(\),nv=\$\("img2noise"\)\.value\.trim\(\);\s*if\(!sv\|\|!nv\)throw new Error/);
 assert.match(html,/留白适配需要主动选择；白色留边可能被 NovelAI 当成画面内容画进图里/);
 assert.match(html,/底图人数和多角色数量不一致时，需要提高重绘强度（约 0\.7 以上）才容易加人，但原图会改变更多。/);
 assert.match(html,/img2SavedOptions\(\)/);
